@@ -671,4 +671,4 @@ with gr.Blocks(title="Risque Inondation Dakar") as demo:
             .then(repondre, inputs=[chat, choix_commune], outputs=chat)
 
 if __name__ == "__main__":
-    demo.launch(theme=THEME)
+    demo.launch(theme=THEME, share=True)
