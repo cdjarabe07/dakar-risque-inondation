@@ -129,5 +129,34 @@ ok = (plot2d.visible and not html3d.visible and plot2d.value is not None
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] bascule Carte 2D / Carte 3D : une seule carte visible à la fois")
 
+# =====================================================================================
+print("\n=== 4. Comparaison de communes ===")
+texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Malika"], {})
+ok = (list(tableau.columns) == ["Indicateur", "Pikine Ouest", "Malika"] and len(fig.data) == 2
+      and "Pikine Ouest** a le score le plus élevé" in texte and "stables" in texte and "⚠️" not in texte)
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] 2 communes sans alerte : tableau 2 colonnes, 2 séries, synthèse sans avertissement")
+
+texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Thiaroye-sur-Mer", "Médina"], coul)
+col_thiaroye = [c for c in tableau.columns if c.startswith("Thiaroye")][0]
+valeurs_thiaroye = " ".join(tableau[col_thiaroye])
+ok = (len(tableau.columns) == 4 and len(fig.data) == 3 and col_thiaroye.endswith("⚠️")
+      and "aucune eau détectée" in valeurs_thiaroye and "incertain" in valeurs_thiaroye
+      and "**Thiaroye-sur-Mer** : 🛰️ aucune eau détectée" in texte and "Prudence" in texte
+      and "Médina et Thiaroye-sur-Mer" in texte)
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] 3 communes dont Thiaroye-sur-Mer (alerte satellite) : avertissement dans "
+      f"l'en-tête, le tableau, la synthèse et la liste par commune")
+
+ok = coul["Pikine Ouest"] == 0 and app.attribuer_couleurs(["Thiaroye-sur-Mer", "Médina"], coul) == \
+     {"Thiaroye-sur-Mer": coul["Thiaroye-sur-Mer"], "Médina": coul["Médina"]}
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] retirer une commune ne change pas la couleur des autres")
+
+texte, tableau, fig, _ = app.comparer(["Grand Yoff"], {})
+ok = fig is None and "au moins 2 communes" in texte and len(tableau) == 0
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] 1 seule commune : message d'invitation, pas de tableau ni de graphique")
+
 print(f"\n{sum(resultats)}/{len(resultats)} scénarios réussis")
 sys.exit(0 if all(resultats) else 1)

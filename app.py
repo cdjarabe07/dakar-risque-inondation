@@ -258,10 +258,185 @@ def repondre(historique, commune):
     return historique + [{"role": "assistant", "content": texte}]
 
 
+# --- Comparaison de 2 ou 3 communes --------------------------------------------------------
+
+# Couleurs d'identité des communes comparées (palette catégorielle validée : daltonisme OK,
+# contraste du 3e slot < 3:1 compensé par la légende, les valeurs écrites et le tableau).
+# Volontairement différentes de la palette jaune → rouge du risque, réservée aux cartes.
+COULEURS_COMPARAISON = ["#2a78d6", "#eb6834", "#1baf7a"]
+SURFACE_GRAPHIQUE, TEXTE_1, TEXTE_2, GRILLE = "#fcfcfb", "#0b0b0b", "#52514e", "#e6e5e0"
+MAX_COMPARAISON = 3
+
+
+def _percentile_exposition(exposition):
+    """0 = la moins exposée des 53 communes, 100 = la plus exposée (part des communes moins exposées).
+    Les ex aequo en bas (ex. 0 % d'eau détectée) restent à 0 au lieu d'hériter d'un rang moyen."""
+    return exposition.apply(lambda v: 100 * (exposition < v).sum() / (len(exposition) - 1))
+
+
+PCT_ALTITUDE = _percentile_exposition(-COMMUNES["alt_mediane_m"])   # sol bas = plus exposé
+PCT_CUVETTES = _percentile_exposition(COMMUNES["pct_depression"])
+PCT_EAU = _percentile_exposition(COMMUNES["pct_eau_stagnante_moyen"])
+
+
+def attribuer_couleurs(selection, couleurs):
+    """La couleur suit la commune, pas sa position : retirer une commune ne repeint pas les autres."""
+    couleurs = {c: i for c, i in (couleurs or {}).items() if c in selection}
+    for c in selection:
+        if c not in couleurs:
+            couleurs[c] = min(set(range(MAX_COMPARAISON)) - set(couleurs.values()))
+    return couleurs
+
+
+def _avertissements(d):
+    alertes = []
+    if not d["classement_robuste"]:
+        alertes.append(f"⚠️ classement incertain (rang {d['rang']} au score complet, "
+                       f"{d['rang_altitude_seule']} avec l'altitude seule)")
+    if d["alerte_detection_s1"]:
+        alertes.append("🛰️ aucune eau détectée par satellite : limite du radar en bâti dense, "
+                       "pas une preuve d'absence d'inondation")
+    return alertes
+
+
+def tableau_comparaison(donnees):
+    """Communes en colonnes, indicateurs en lignes."""
+    lignes = {
+        "Classe de risque": [d["classe_risque"] for d in donnees],
+        "Score de risque (0-100)": [f"{d['score_risque']:.0f}" for d in donnees],
+        "Rang (1 = le plus exposé)": [f"{d['rang']} / {d['nb_communes']}" for d in donnees],
+        "Altitude médiane du sol": [f"{d['altitude_mediane_m']:.1f} m" for d in donnees],
+        "Surface en cuvette": [f"{d['pct_cuvettes']:.0f} %" for d in donnees],
+        "Eau stagnante détectée (satellite)": [f"{d['pct_eau_detectee']:.2f} %" for d in donnees],
+        "Eau permanente": [f"{d['pct_eau_permanente']:.1f} %" for d in donnees],
+        "Surface terrestre": [f"{d['surface_km2']:.1f} km²" for d in donnees],
+        "Fiabilité du classement": [
+            "✅ stable" if d["classement_robuste"]
+            else f"⚠️ incertain (rang {d['rang']} → {d['rang_altitude_seule']} selon les indicateurs)"
+            for d in donnees],
+        "Détection satellite": [
+            "⚠️ aucune eau détectée (limite radar en bâti dense)" if d["alerte_detection_s1"] else "✅ eau détectée"
+            for d in donnees],
+    }
+    entetes = [d["commune"] + (" ⚠️" if _avertissements(d) else "") for d in donnees]
+    return pd.DataFrame([[indic, *vals] for indic, vals in lignes.items()], columns=["Indicateur", *entetes])
+
+
+def graphique_comparaison(donnees, couleurs):
+    """Barres groupées sur une échelle commune 0-100 (0 = la moins exposée des 53 communes)."""
+    indicateurs = ["Score<br>de risque", "Altitude<br>basse", "Surface<br>en cuvette", "Eau détectée<br>(satellite)"]
+    fig = go.Figure()
+    for d in donnees:
+        c = d["commune"]
+        valeurs = [d["score_risque"], PCT_ALTITUDE[c], PCT_CUVETTES[c], PCT_EAU[c]]
+        brutes = [f"score {d['score_risque']:.0f}/100, rang {d['rang']}/{d['nb_communes']}",
+                  f"altitude médiane {d['altitude_mediane_m']:.1f} m",
+                  f"{d['pct_cuvettes']:.0f} % de la surface en cuvette",
+                  f"{d['pct_eau_detectee']:.2f} % de la surface en eau"]
+        # Le ⚠ marque les valeurs à lire avec prudence (score incertain, eau non détectable en bâti dense)
+        textes = [f"{v:.0f}" + (" ⚠" if (i == 0 and not d["classement_robuste"])
+                                or (i == 3 and d["alerte_detection_s1"]) else "")
+                  for i, v in enumerate(valeurs)]
+        fig.add_trace(go.Bar(
+            name=c + (" ⚠️" if _avertissements(d) else ""), x=indicateurs, y=valeurs,
+            marker=dict(color=COULEURS_COMPARAISON[couleurs[c]], line=dict(color=SURFACE_GRAPHIQUE, width=2)),
+            text=textes, textposition="outside", textfont=dict(color=TEXTE_1, size=12), cliponaxis=False,
+            customdata=brutes,
+            hovertemplate=f"<b>{c}</b><br>%{{y:.0f}}/100 — %{{customdata}}<extra></extra>"))
+    fig.update_layout(
+        barmode="group", bargap=0.28, bargroupgap=0.06, barcornerradius=4, height=380,
+        paper_bgcolor=SURFACE_GRAPHIQUE, plot_bgcolor=SURFACE_GRAPHIQUE,
+        font=dict(color=TEXTE_2, size=12), margin=dict(l=10, r=10, t=40, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(color=TEXTE_1, size=13)),
+        yaxis=dict(range=[0, 115], title="Exposition relative (0-100)",
+                   gridcolor=GRILLE, zeroline=True, zerolinecolor="#b5b3ab", tickvals=[0, 25, 50, 75, 100]),
+        xaxis=dict(tickfont=dict(color=TEXTE_1, size=12)),
+        hoverlabel=dict(bgcolor="white", font_color=TEXTE_1),
+    )
+    return fig
+
+
+def _enumerer(noms):
+    """« A », « A et B », « A, B et C »."""
+    return noms[0] if len(noms) == 1 else ", ".join(noms[:-1]) + " et " + noms[-1]
+
+
+NOMS_INDICATEURS = {"altitude": "l'altitude du sol", "cuvettes": "la part de surface en cuvette",
+                    "eau": "l'eau détectée par satellite"}
+
+
+def synthese_comparaison(donnees):
+    """Phrase de synthèse conditionnelle (sans IA)."""
+    tri = sorted(donnees, key=lambda d: d["score_risque"], reverse=True)
+    n = len(tri)
+    premier, suivants = tri[0], tri[1:]
+    phrase = (f"**{n} communes comparées** : **{premier['commune']}** a le score le plus élevé "
+              f"({premier['score_risque']:.0f}/100, rang {premier['rang']}), suivie de "
+              + " puis de ".join(f"**{d['commune']}** ({d['score_risque']:.0f}/100, rang {d['rang']})"
+                                 for d in suivants) + ".")
+    parties = [phrase]
+
+    ecart = premier["score_risque"] - tri[1]["score_risque"]
+    if ecart < 10:
+        parties.append(f"L'écart entre {premier['commune']} et {tri[1]['commune']} n'est que de {ecart:.0f} points : "
+                       "à ce niveau de précision, leur exposition est à considérer comme proche.")
+
+    # Indicateur qui sépare le plus la commune la plus exposée de la moins exposée
+    dernier = tri[-1]
+    ecarts = {"altitude": PCT_ALTITUDE[premier["commune"]] - PCT_ALTITUDE[dernier["commune"]],
+              "cuvettes": PCT_CUVETTES[premier["commune"]] - PCT_CUVETTES[dernier["commune"]],
+              "eau": PCT_EAU[premier["commune"]] - PCT_EAU[dernier["commune"]]}
+    cle = max(ecarts, key=ecarts.get)
+    if ecarts[cle] > 15:
+        valeur = {"altitude": lambda d: f"{d['altitude_mediane_m']:.1f} m",
+                  "cuvettes": lambda d: f"{d['pct_cuvettes']:.0f} %",
+                  "eau": lambda d: f"{d['pct_eau_detectee']:.2f} %"}[cle]
+        parties.append(f"La différence entre {premier['commune']} et {dernier['commune']} tient surtout à "
+                       f"{NOMS_INDICATEURS[cle]} ({valeur(premier)} contre {valeur(dernier)}).")
+    contraires = [k for k, v in ecarts.items() if v < -15]
+    if contraires:
+        parties.append(f"À l'inverse, {dernier['commune']} est plus exposée sur "
+                       + _enumerer([NOMS_INDICATEURS[k] for k in contraires]) + ".")
+
+    incertains = [d["commune"] for d in tri if not d["classement_robuste"]]
+    radar = [d["commune"] for d in tri if d["alerte_detection_s1"]]
+    if incertains or radar:
+        prudence = []
+        if incertains:
+            prudence.append(("le classement de " if len(incertains) == 1 else "les classements de ")
+                            + _enumerer(incertains) + (" est incertain" if len(incertains) == 1 else " sont incertains"))
+        if radar:
+            prudence.append("aucune eau n'a été détectée par satellite à " + _enumerer(radar)
+                            + ", ce qui peut refléter la limite du radar en bâti dense")
+        parties.append("⚠️ **Prudence** : " + " ; ".join(prudence) + ".")
+    else:
+        parties.append("✅ Les classements de ces communes sont stables selon les indicateurs retenus.")
+    return " ".join(parties)
+
+
+def comparer(selection, couleurs):
+    """Renvoie (texte, tableau, graphique, couleurs) pour 2 ou 3 communes."""
+    selection = list(selection or [])[:MAX_COMPARAISON]
+    couleurs = attribuer_couleurs(selection, couleurs)
+    if len(selection) < 2:
+        return ("*Sélectionnez au moins 2 communes (3 au maximum) pour les comparer.*",
+                pd.DataFrame(columns=["Indicateur"]), None, couleurs)
+    donnees = [donnees_commune(c) for c in selection]
+    avertissements = []
+    for d in donnees:
+        for a in _avertissements(d):
+            avertissements.append(f"- **{d['commune']}** : {a}")
+    texte = synthese_comparaison(donnees)
+    if avertissements:
+        texte += "\n\n**Avertissements par commune**\n" + "\n".join(avertissements)
+    return texte, tableau_comparaison(donnees), graphique_comparaison(donnees, couleurs), couleurs
+
+
 # --- Interface ---------------------------------------------------------------------------
 
-CHOIX = [(f"{c}  (rang {int(r)})", c) for c, r in COMMUNES.sort_values("commune")["rang"].items()]
+CHOIX =[(f"{c}  (rang {int(r)})", c) for c, r in COMMUNES.sort_values("commune")["rang"].items()]
 DEFAUT = "Pikine Ouest"
+COMPARAISON_DEFAUT = ["Pikine Ouest", "Thiaroye-sur-Mer"]   # rang 1 vs classement incertain : bon exemple
 
 A_PROPOS = """
 **Ce que mesure le score.** Un classement *relatif* des 53 communes de la région de Dakar selon leur exposition physique au risque d'inondation. Il combine, à poids égaux, trois indicateurs normalisés (z-scores) :
@@ -298,9 +473,26 @@ with gr.Blocks(title="Risque d'inondation — Dakar") as demo:
                                   "Quelles sont les limites des données ?",
                                   "Que faire chez moi en cas de forte pluie ?"],
                         inputs=question, label="Exemples de questions")
+    gr.Markdown("## ⚖️ Comparer des communes")
+    _texte0, _tableau0, _graph0, _couleurs0 = comparer(COMPARAISON_DEFAUT, {})
+    couleurs_comparaison = gr.State(_couleurs0)
+    comp_selection = gr.Dropdown(choices=CHOIX, value=COMPARAISON_DEFAUT, multiselect=True,
+                                 max_choices=MAX_COMPARAISON, filterable=True,
+                                 label="Choisissez 2 ou 3 communes")
+    comp_texte = gr.Markdown(_texte0)
+    # Tableau et graphique empilés sur toute la largeur : côte à côte, 3 communes ne tenaient pas
+    comp_tableau = gr.Dataframe(value=_tableau0, interactive=False, wrap=True, show_label=False,
+                                pinned_columns=1)
+    comp_graphique = gr.Plot(value=_graph0, show_label=False)
+    gr.Markdown("<sub>Échelle commune 0-100 : 0 = la commune la moins exposée des 53 sur cet indicateur, "
+                "100 = la plus exposée (score de risque, altitude basse, part en cuvette, eau détectée). "
+                "⚠ = valeur à lire avec prudence (classement incertain ou eau non détectable en bâti dense). "
+                "Survolez une barre pour la valeur brute.</sub>")
     with gr.Accordion("Méthode et limites", open=False):
         gr.Markdown(A_PROPOS)
 
+    comp_selection.change(comparer, inputs=[comp_selection, couleurs_comparaison],
+                          outputs=[comp_texte, comp_tableau, comp_graphique, couleurs_comparaison])
     choix_commune.change(selectionner, inputs=[choix_commune, mode_carte],
                          outputs=[carte_plot, carte_html, fiche, explication, chat, question])
     mode_carte.change(cartes, inputs=[choix_commune, mode_carte], outputs=[carte_plot, carte_html])
