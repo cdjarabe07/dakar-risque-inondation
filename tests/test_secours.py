@@ -173,5 +173,34 @@ for commune, attendu, pourquoi in [
     resultats.append(ok)
     print(f"[{'OK' if ok else 'ÉCHEC'}] {commune} → {niveau} (attendu {attendu} : {pourquoi})")
 
+# =====================================================================================
+print("\n=== 6. Couche eau détectée et rotation 3D ===")
+f_score, f_eau = app.carte("Médina"), app.carte("Médina", "Eau détectée (satellite)")
+noms_score = {t.name for t in f_score.data}
+noms_eau = {t.name for t in f_eau.data}
+ok = ("Très élevé" in noms_score and "Aucune eau détectée" in noms_eau and "Très élevé" not in noms_eau
+      and f_eau.layout.legend.title.text == "Eau détectée (satellite)")
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] carte 2D : couleurs et légende changent avec la couche")
+
+h_eau = app.carte_3d("Médina", "Eau détectée (satellite)")
+# « properties.hauteur_eau » = expression de hauteur de la couche 3D (le champ existe dans les données des 2 couches)
+ok = ("properties.hauteur_eau" in h_eau and "Détection moins fiable en tissu urbain" in h_eau
+      and "properties.hauteur_eau" not in app.carte_3d("Médina"))
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] carte 3D : hauteur et légende de la couche eau, avec rappel de la limite")
+
+ok = "deckInstance.setProps" in app.carte_3d("Médina", rotation=True) and \
+     "deckInstance.setProps" not in app.carte_3d("Médina")
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] rotation : script présent seulement si activée")
+
+etat, html3d, bouton = app.basculer_rotation(False, "Médina", "Score de risque")
+etat2, html3d2, bouton2 = app.basculer_rotation(etat, "Médina", "Score de risque")
+ok = (etat and "deckInstance.setProps" in html3d.value and "Arrêter" in bouton.value
+      and not etat2 and "deckInstance.setProps" not in html3d2.value and "Rotation auto" in bouton2.value)
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] bouton : 1er clic lance la rotation, 2e clic revient à la vue fixe")
+
 print(f"\n{sum(resultats)}/{len(resultats)} scénarios réussis")
 sys.exit(0 if all(resultats) else 1)

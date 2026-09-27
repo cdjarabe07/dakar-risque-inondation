@@ -47,6 +47,34 @@ def _rgba(hexa, alpha):
     return [int(hexa[i:i + 2], 16) for i in (1, 3, 5)] + [alpha]
 
 
+# --- Couches de la carte : score de risque ou eau détectée par Sentinel-1 ------------------
+
+COUCHES = ["Score de risque", "Eau détectée (satellite)"]
+# Eau détectée : échelle de bleus (une seule teinte, clair → foncé), distincte du jaune → rouge du risque.
+# 0 % en gris : « rien détecté » (le radar peut rater l'eau en bâti dense), pas « aucun risque ».
+CLASSES_EAU = ["Aucune eau détectée", "< 0,05 %", "0,05 – 0,15 %", "0,15 – 0,30 %", "> 0,30 %"]
+COULEURS_EAU = dict(zip(CLASSES_EAU, ["#cfcdc6", "#b7d3f6", "#6da7ec", "#2a78d6", "#184f95"]))
+EAU_MAX = float(COMMUNES["pct_eau_stagnante_moyen"].max())
+
+
+def classe_eau(pct):
+    if pct == 0:
+        return CLASSES_EAU[0]
+    return CLASSES_EAU[1] if pct < 0.05 else CLASSES_EAU[2] if pct < 0.15 else \
+        CLASSES_EAU[3] if pct < 0.30 else CLASSES_EAU[4]
+
+
+COMMUNES["classe_eau"] = COMMUNES["pct_eau_stagnante_moyen"].apply(classe_eau)
+
+NOTE_COUCHE = {
+    COUCHES[0]: "**Couleur = score de risque relatif** des 53 communes (5 classes, de très faible à très élevé). "
+                "En 3D, la hauteur est proportionnelle au score.",
+    COUCHES[1]: "**Couleur = % de la surface où le radar Sentinel-1 a détecté de l'eau stagnante** (moyenne de "
+                "3 images prises juste après de fortes pluies, 2024-2025). En 3D, la hauteur est proportionnelle "
+                "à ce pourcentage. ⚠️ **Détection moins fiable en tissu urbain dense** : une commune grise n'est "
+                "pas forcément épargnée par les inondations.",
+}
+
 # GeoJSON allégé pour la 3D : coordonnées arrondies, seulement les champs utiles.
 # Les champs sont dupliqués au niveau de l'entité ET dans "properties" : l'infobulle de pydeck
 # les trouve ainsi quelle que soit sa façon de lire l'objet survolé.
@@ -55,7 +83,9 @@ for _f in GEOJSON["features"]:
     _p = _f["properties"]
     _champs = {"commune": _p["commune"], "classe_risque": _p["classe_risque"],
                "score": round(_p["score_risque"]), "rang": _p["rang"],
-               "hauteur": max(_p["score_risque"], 1.0)}   # hauteur min. 1 pour que le score 0 reste visible
+               "hauteur": max(_p["score_risque"], 1.0),   # hauteur min. 1 pour que le score 0 reste visible
+               "eau": f"{_p['pct_eau_stagnante_moyen']:.2f}", "classe_eau": classe_eau(_p["pct_eau_stagnante_moyen"]),
+               "hauteur_eau": max(100 * _p["pct_eau_stagnante_moyen"] / EAU_MAX, 1.0)}   # 0-100 comme le score
     FEATURES_3D[_p["commune"]] = {"type": "Feature", **_champs, "properties": _champs,
                                   "geometry": {"type": _f["geometry"]["type"],
                                                "coordinates": _arrondir(_f["geometry"]["coordinates"])}}
@@ -176,14 +206,20 @@ def fiche_commune(commune):
 
 # --- Carte -----------------------------------------------------------------------------
 
-def carte(commune=None):
+def carte(commune=None, couche=COUCHES[0]):
     df = COMMUNES.reset_index(drop=True)
+    if couche == COUCHES[1]:
+        colonne, ordre, palette, titre = "classe_eau", CLASSES_EAU[::-1], COULEURS_EAU, "Eau détectée (satellite)"
+    else:
+        colonne, ordre, palette, titre = "classe_risque", CLASSES[::-1], COULEURS, "Risque relatif"
     fig = px.choropleth_map(
         df, geojson=GEOJSON, locations="osm_id", featureidkey="properties.osm_id",
-        color="classe_risque", category_orders={"classe_risque": CLASSES[::-1]},
-        color_discrete_map=COULEURS, opacity=0.75, hover_name="commune",
-        hover_data={"osm_id": False, "classe_risque": True, "score_risque": ":.0f", "rang": True},
-        labels={"classe_risque": "Risque", "score_risque": "Score /100", "rang": "Rang"},
+        color=colonne, category_orders={colonne: ordre},
+        color_discrete_map=palette, opacity=0.75, hover_name="commune",
+        hover_data={"osm_id": False, colonne: False, "classe_risque": True, "score_risque": ":.0f", "rang": True,
+                    "pct_eau_stagnante_moyen": ":.2f"},
+        labels={"classe_risque": "Risque", "score_risque": "Score /100", "rang": "Rang",
+                "pct_eau_stagnante_moyen": "Eau détectée (%)", "classe_eau": "Eau détectée"},
         map_style="carto-positron", center={"lat": 14.76, "lon": -17.33}, zoom=9.4,
     )
     if commune:
@@ -196,7 +232,7 @@ def carte(commune=None):
         lat, lon = centre(f)
         fig.update_layout(map_center={"lat": lat, "lon": lon}, map_zoom=11.5)
     fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), height=560,
-                      legend=dict(title="Risque relatif", yanchor="top", y=0.98, xanchor="left", x=0.01,
+                      legend=dict(title=titre, yanchor="top", y=0.98, xanchor="left", x=0.01,
                                   bgcolor="rgba(255,255,255,0.85)"))
     return fig
 
@@ -204,32 +240,60 @@ def carte(commune=None):
 ECHELLE_HAUTEUR = 12   # score 100 → 1 200 m d'extrusion : relief lisible sans murs qui cachent les voisins
 
 
-def _collection(noms, alpha):
+VITESSE_ROTATION = 6   # degrés par seconde : un tour complet en une minute
+
+
+def _script_rotation(vue):
+    """Script ajouté à la page pydeck : fait tourner la caméra en boucle autour du point de vue initial.
+    Utilise la variable globale `deckInstance` créée par le gabarit HTML de pydeck."""
+    depart = {"latitude": vue.latitude, "longitude": vue.longitude, "zoom": vue.zoom,
+              "pitch": vue.pitch, "bearing": vue.bearing}
+    return f"""<script>
+(function () {{
+  const depart = {json.dumps(depart)};
+  const t0 = performance.now();
+  function tourner(t) {{
+    if (typeof deckInstance !== "undefined" && deckInstance && deckInstance.setProps) {{
+      const cap = (depart.bearing + (t - t0) / 1000 * {VITESSE_ROTATION}) % 360;
+      deckInstance.setProps({{initialViewState: Object.assign({{}}, depart, {{bearing: cap}})}});
+    }}
+    requestAnimationFrame(tourner);
+  }}
+  requestAnimationFrame(tourner);
+}})();
+</script>"""
+
+
+def _collection(noms, alpha, couche=COUCHES[0]):
     features = []
     for nom in noms:
         f = dict(FEATURES_3D[nom])
-        couleur = _rgba(COULEURS[f["classe_risque"]], alpha)
+        couleur = _rgba(COULEURS_EAU[f["classe_eau"]] if couche == COUCHES[1] else COULEURS[f["classe_risque"]], alpha)
         f["properties"] = {**f["properties"], "couleur": couleur}
         f["couleur"] = couleur
         features.append(f)
     return {"type": "FeatureCollection", "features": features}
 
 
-def carte_3d(commune=None):
-    """Carte 3D pydeck : hauteur = score de risque, couleur = classe (même palette que la 2D).
+def carte_3d(commune=None, couche=COUCHES[0], rotation=False):
+    """Carte 3D pydeck. Couche « Score de risque » : hauteur = score, couleur = classe de risque
+    (même palette que la 2D). Couche « Eau détectée » : hauteur et couleur = % d'eau détectée.
+    rotation=True ajoute un script qui fait tourner la caméra en boucle.
 
     Rendue dans un iframe (srcdoc) : gr.HTML n'exécute pas les <script> insérés directement,
     alors qu'un iframe charge la page pydeck complète et isolée.
     """
     autres = [n for n in FEATURES_3D if n != commune]
-    commun = dict(extruded=True, get_elevation="properties.hauteur", elevation_scale=ECHELLE_HAUTEUR,
+    hauteur = "properties.hauteur_eau" if couche == COUCHES[1] else "properties.hauteur"
+    commun = dict(extruded=True, get_elevation=hauteur, elevation_scale=ECHELLE_HAUTEUR,
                   get_fill_color="properties.couleur", pickable=True, auto_highlight=True,
                   highlight_color=[255, 255, 255, 90])
     # Les autres communes sont atténuées quand une commune est sélectionnée, pour la faire ressortir
-    couches = [pdk.Layer("GeoJsonLayer", _collection(autres, 140 if commune else 235), id="communes", **commun)]
+    couches = [pdk.Layer("GeoJsonLayer", _collection(autres, 140 if commune else 235, couche),
+                         id="communes", **commun)]
     if commune:
         # Commune sélectionnée : couleur pleine et arêtes noires
-        couches.append(pdk.Layer("GeoJsonLayer", _collection([commune], 255), id="selection",
+        couches.append(pdk.Layer("GeoJsonLayer", _collection([commune], 255, couche), id="selection",
                                  wireframe=True, get_line_color=[20, 20, 20, 255], line_width_min_pixels=2,
                                  **commun))
         lat, lon = centre(FEATURES[commune])
@@ -238,22 +302,32 @@ def carte_3d(commune=None):
         vue = pdk.ViewState(latitude=14.72, longitude=-17.33, zoom=9.7, pitch=40, bearing=-10)
     deck = pdk.Deck(
         layers=couches, initial_view_state=vue, map_provider="carto", map_style="light",
-        tooltip={"html": "<b>{commune}</b><br/>Risque : {classe_risque}<br/>Score : {score}/100 · rang {rang}/53",
+        tooltip={"html": "<b>{commune}</b><br/>Risque : {classe_risque}<br/>Score : {score}/100 · rang {rang}/53"
+                         "<br/>Eau détectée (satellite) : {eau} %",
                  "style": {"fontSize": "13px", "backgroundColor": "#1f2937", "color": "white"}},
     )
     page = deck.to_html(as_string=True, notebook_display=False)
     # pydeck insère sa configuration en JSON indenté (≈ 540 Ko) : la version compacte fait ≈ 150 Ko
     config = deck.to_json()
     page = page.replace(config, json.dumps(json.loads(config), separators=(",", ":"), ensure_ascii=False))
+    if rotation:
+        page = page.replace("</html>", _script_rotation(vue) + "\n</html>")
+    if couche == COUCHES[1]:
+        titre, classes, palette = "Eau détectée (satellite)", CLASSES_EAU[::-1], COULEURS_EAU
+        aide = ("Hauteur ∝ % de surface en eau stagnante détectée. ⚠️ Détection moins fiable en tissu urbain "
+                "dense : une commune grise n'est pas forcément épargnée.")
+    else:
+        titre, classes, palette = "Risque relatif", CLASSES[::-1], COULEURS
+        aide = "Hauteur ∝ score (0-100)."
     legende = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;">'
-        f'<span style="width:14px;height:14px;border-radius:3px;background:{COULEURS[c]};'
+        f'<span style="width:14px;height:14px;border-radius:3px;background:{palette[c]};'
         f'border:1px solid #999;display:inline-block;"></span>{c}</span>'
-        for c in CLASSES[::-1])
+        for c in classes)
     return (f'<iframe srcdoc="{html.escape(page, quote=True)}" title="Carte 3D du risque" '
             f'style="width:100%;height:560px;border:0;border-radius:8px;"></iframe>'
-            f'<div style="font-size:13px;margin-top:6px;">Risque relatif : {legende}'
-            f'<br/><span style="opacity:0.75;">Hauteur ∝ score (0-100). Glisser pour déplacer, '
+            f'<div style="font-size:13px;margin-top:6px;">{titre} : {legende}'
+            f'<br/><span style="opacity:0.75;">{aide} Glisser pour déplacer, '
             f'Ctrl + glisser (ou clic droit) pour pivoter, molette pour zoomer.</span></div>')
 
 
@@ -272,17 +346,33 @@ def chat_vide(commune):
 MODES_CARTE = ["Carte 3D", "Carte 2D"]
 
 
-def cartes(commune, mode):
+def cartes(commune, mode, couche=COUCHES[0], rotation=False):
     """Affiche la carte du mode choisi et masque l'autre. Seule la carte visible est recalculée ;
     la 3D est régénérée à chaque affichage, ce qui l'initialise à la bonne taille."""
     if mode == "Carte 2D":
-        return gr.Plot(value=carte(commune), visible=True), gr.HTML(visible=False)
-    return gr.Plot(visible=False), gr.HTML(value=carte_3d(commune), visible=True)
+        return gr.Plot(value=carte(commune, couche), visible=True), gr.HTML(visible=False)
+    return gr.Plot(visible=False), gr.HTML(value=carte_3d(commune, couche, rotation), visible=True)
 
 
-def selectionner(commune, mode):
+def selectionner(commune, mode, couche=COUCHES[0], rotation=False):
     # Changer de commune réinitialise l'explication, le chat et la zone de saisie
-    return (*cartes(commune, mode), fiche_commune(commune), "", chat_vide(commune), "")
+    return (*cartes(commune, mode, couche, rotation), fiche_commune(commune), "", chat_vide(commune), "")
+
+
+def libelle_rotation(rotation):
+    return "⏹️ Arrêter la rotation" if rotation else "🔄 Rotation auto"
+
+
+def afficher_cartes(commune, mode, couche, rotation):
+    """Changement de mode (2D/3D) ou de couche : cartes, bouton de rotation (3D seulement) et note de légende."""
+    return (*cartes(commune, mode, couche, rotation), gr.Button(visible=(mode == "Carte 3D")),
+            NOTE_COUCHE[couche])
+
+
+def basculer_rotation(rotation, commune, couche):
+    """1er clic : la caméra 3D tourne en boucle ; 2e clic : retour à la vue fixe centrée sur la commune."""
+    rotation = not rotation
+    return rotation, gr.HTML(value=carte_3d(commune, couche, rotation)), gr.Button(value=libelle_rotation(rotation))
 
 
 # --- Chat : questions libres sur la commune sélectionnée ---------------------------------
@@ -498,56 +588,87 @@ A_PROPOS = """
 Sources : OpenStreetMap, Copernicus (Sentinel-1, DEM), CHIRPS (datation des pluies).
 """
 
-with gr.Blocks(title="Risque d'inondation — Dakar") as demo:
-    gr.Markdown("# 🌧️ Observatoire du risque d'inondation — Dakar\n"
-                "Classement relatif des 53 communes de la région selon leur exposition physique aux inondations.")
-    with gr.Row():
-        with gr.Column(scale=3):
-            mode_carte = gr.Radio(MODES_CARTE, value=MODES_CARTE[0], show_label=False,
-                                  info="3D : la hauteur de chaque commune est proportionnelle à son score de risque. "
-                                       "Survolez une commune pour voir son score ; choisissez-la dans la liste pour le détail.")
-            carte_plot = gr.Plot(value=carte(DEFAUT), show_label=False, visible=False)
-            carte_html = gr.HTML(value=carte_3d(DEFAUT))
-        with gr.Column(scale=2):
-            choix_commune = gr.Dropdown(choices=CHOIX, value=DEFAUT, label="Commune", filterable=True)
-            fiche = gr.Markdown(fiche_commune(DEFAUT))
-            bouton = gr.Button("🤖 Expliquer ce risque", variant="primary")
-            explication = gr.Markdown()
-            chat = gr.Chatbot(value=[], label=f"💬 Questions sur {DEFAUT}", height=380, buttons=["copy"],
-                              placeholder="Posez une question sur la commune sélectionnée : l'assistant "
-                                          "répond à partir des seules données de l'observatoire.")
-            question = gr.Textbox(show_label=False, placeholder="Ex. : Pourquoi ce classement ?",
-                                  submit_btn="Envoyer", max_length=500)
-            gr.Examples(examples=["Pourquoi ce classement ?",
-                                  "Quelles sont les limites des données ?",
-                                  "Que faire chez moi en cas de forte pluie ?"],
-                        inputs=question, label="Exemples de questions")
-    gr.Markdown("## ⚖️ Comparer des communes")
-    _texte0, _tableau0, _graph0, _couleurs0 = comparer(COMPARAISON_DEFAUT, {})
-    couleurs_comparaison = gr.State(_couleurs0)
-    comp_selection = gr.Dropdown(choices=CHOIX, value=COMPARAISON_DEFAUT, multiselect=True,
-                                 max_choices=MAX_COMPARAISON, filterable=True,
-                                 label="Choisissez 2 ou 3 communes")
-    comp_texte = gr.Markdown(_texte0)
-    # Tableau et graphique empilés sur toute la largeur : côte à côte, 3 communes ne tenaient pas
-    comp_tableau = gr.Dataframe(value=_tableau0, interactive=False, wrap=True, show_label=False,
-                                pinned_columns=1)
-    comp_graphique = gr.Plot(value=_graph0, show_label=False)
-    gr.Markdown("<sub>Échelle commune 0-100 : 0 = la commune la moins exposée des 53 sur cet indicateur, "
-                "100 = la plus exposée (score de risque, altitude basse, part en cuvette, eau détectée). "
-                "⚠ = valeur à lire avec prudence (classement incertain ou eau non détectable en bâti dense). "
-                "Survolez une barre pour la valeur brute.</sub>")
+# Thème : bleus « eau / océan » à la place du violet par défaut de Gradio (aucun CSS personnalisé)
+THEME = gr.themes.Soft(primary_hue="blue", secondary_hue="cyan", neutral_hue="slate")
+
+# Titre de l'onglet du navigateur : dans Gradio 6, il se règle dans gr.Blocks(title=...), pas dans launch()
+with gr.Blocks(title="Risque Inondation Dakar") as demo:
+    gr.Markdown("# 🌊 Observatoire du Risque d'Inondation — Dakar\n"
+                "### L'IA explique le risque, elle ne le décide pas.")
+
+    with gr.Tabs():
+        # --- Onglet 1 : carte, fiche détail et chat IA ---------------------------------------
+        with gr.Tab("🗺️ Carte"):
+            with gr.Row(equal_height=False):
+                with gr.Column(scale=3):
+                    rotation_etat = gr.State(False)
+                    with gr.Group():
+                        with gr.Row(equal_height=True):
+                            mode_carte = gr.Radio(MODES_CARTE, value=MODES_CARTE[0], show_label=False, scale=2,
+                                                  info="Survolez une commune pour voir son score ; "
+                                                       "choisissez-la dans la liste pour le détail.")
+                            couche_carte = gr.Radio(COUCHES, value=COUCHES[0], label="Couche", scale=3)
+                            bouton_rotation = gr.Button(libelle_rotation(False), size="sm", scale=1,
+                                                        min_width=150)
+                    # Cartes hors gr.Group : dans un groupe, la carte Plotly 2D prenait une bordure épaisse
+                    carte_plot = gr.Plot(value=carte(DEFAUT), show_label=False, visible=False)
+                    carte_html = gr.HTML(value=carte_3d(DEFAUT))
+                    note_couche = gr.Markdown(NOTE_COUCHE[COUCHES[0]])
+                with gr.Column(scale=2):
+                    with gr.Group():
+                        choix_commune = gr.Dropdown(choices=CHOIX, value=DEFAUT, label="Commune", filterable=True)
+                        fiche = gr.Markdown(fiche_commune(DEFAUT))
+                    # Bouton, explication et chat hors gr.Group : dans un groupe, le chat prenait une bordure
+                    # épaisse et l'explication encore vide formait une bande grise
+                    bouton = gr.Button("🤖 Expliquer ce risque", variant="primary")
+                    explication = gr.Markdown()
+                    chat = gr.Chatbot(value=[], label=f"💬 Questions sur {DEFAUT}", height=380,
+                                      buttons=["copy"],
+                                      placeholder="Posez une question sur la commune sélectionnée : "
+                                                  "l'assistant répond à partir des seules données de "
+                                                  "l'observatoire.")
+                    question = gr.Textbox(show_label=False, placeholder="Ex. : Pourquoi ce classement ?",
+                                          submit_btn="Envoyer", max_length=500)
+                    gr.Examples(examples=["Pourquoi ce classement ?",
+                                          "Quelles sont les limites des données ?",
+                                          "Que faire chez moi en cas de forte pluie ?"],
+                                inputs=question, label="Exemples de questions")
+
+        # --- Onglet 2 : comparaison de 2 ou 3 communes ----------------------------------------
+        with gr.Tab("⚖️ Comparer des communes"):
+            _texte0, _tableau0, _graph0, _couleurs0 = comparer(COMPARAISON_DEFAUT, {})
+            couleurs_comparaison = gr.State(_couleurs0)
+            with gr.Group():
+                comp_selection = gr.Dropdown(choices=CHOIX, value=COMPARAISON_DEFAUT, multiselect=True,
+                                             max_choices=MAX_COMPARAISON, filterable=True,
+                                             label="Choisissez 2 ou 3 communes")
+                comp_texte = gr.Markdown(_texte0, padding=True)
+            # Tableau et graphique empilés sur toute la largeur : côte à côte, 3 communes ne tenaient pas
+            # Largeurs fixes : sans elles, les phrases de la ligne « Niveau de confiance » élargissaient
+            # la 1re commune et repoussaient les autres hors de l'écran (4 valeurs = 1 + 3 communes max)
+            comp_tableau = gr.Dataframe(value=_tableau0, interactive=False, wrap=True, show_label=False,
+                                        column_widths=["22%", "26%", "26%", "26%"], max_height=1000)
+            comp_graphique = gr.Plot(value=_graph0, show_label=False)
+            gr.Markdown("<sub>Échelle commune 0-100 : 0 = la commune la moins exposée des 53 sur cet "
+                        "indicateur, 100 = la plus exposée (score de risque, altitude basse, part en cuvette, "
+                        "eau détectée). ⚠ = valeur à lire avec prudence (classement incertain ou eau non "
+                        "détectable en bâti dense). Survolez une barre pour la valeur brute.</sub>")
+
     with gr.Accordion("Méthode et limites", open=False):
         gr.Markdown(A_PROPOS)
 
     comp_selection.change(comparer, inputs=[comp_selection, couleurs_comparaison],
                           outputs=[comp_texte, comp_tableau, comp_graphique, couleurs_comparaison])
-    choix_commune.change(selectionner, inputs=[choix_commune, mode_carte],
+    choix_commune.change(selectionner, inputs=[choix_commune, mode_carte, couche_carte, rotation_etat],
                          outputs=[carte_plot, carte_html, fiche, explication, chat, question])
-    mode_carte.change(cartes, inputs=[choix_commune, mode_carte], outputs=[carte_plot, carte_html])
+    for controle in (mode_carte, couche_carte):
+        controle.change(afficher_cartes, inputs=[choix_commune, mode_carte, couche_carte, rotation_etat],
+                        outputs=[carte_plot, carte_html, bouton_rotation, note_couche])
+    bouton_rotation.click(basculer_rotation, inputs=[rotation_etat, choix_commune, couche_carte],
+                          outputs=[rotation_etat, carte_html, bouton_rotation])
     bouton.click(expliquer, inputs=choix_commune, outputs=explication)
     question.submit(ajouter_question, inputs=[question, chat], outputs=[chat, question]) \
             .then(repondre, inputs=[chat, choix_commune], outputs=chat)
 
 if __name__ == "__main__":
-    demo.launch(theme=gr.themes.Soft())
+    demo.launch(theme=THEME)
