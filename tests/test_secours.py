@@ -132,7 +132,7 @@ print(f"[{'OK' if ok else 'ÉCHEC'}] bascule Carte 2D / Carte 3D : une seule car
 # =====================================================================================
 print("\n=== 4. Comparaison de communes ===")
 texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Malika"], {})
-ok = (list(tableau.columns) == ["Indicateur", "Pikine Ouest", "Malika"] and len(fig.data) == 2
+ok = (list(tableau.columns) == ["Indicateur", "Pikine Ouest 🟢 haute", "Malika 🟢 haute"] and len(fig.data) == 2
       and "Pikine Ouest** a le score le plus élevé" in texte and "stables" in texte and "⚠️" not in texte)
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] 2 communes sans alerte : tableau 2 colonnes, 2 séries, synthèse sans avertissement")
@@ -140,7 +140,7 @@ print(f"[{'OK' if ok else 'ÉCHEC'}] 2 communes sans alerte : tableau 2 colonnes
 texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Thiaroye-sur-Mer", "Médina"], coul)
 col_thiaroye = [c for c in tableau.columns if c.startswith("Thiaroye")][0]
 valeurs_thiaroye = " ".join(tableau[col_thiaroye])
-ok = (len(tableau.columns) == 4 and len(fig.data) == 3 and col_thiaroye.endswith("⚠️")
+ok = (len(tableau.columns) == 4 and len(fig.data) == 3 and col_thiaroye.endswith("🔴 faible")
       and "aucune eau détectée" in valeurs_thiaroye and "incertain" in valeurs_thiaroye
       and "**Thiaroye-sur-Mer** : 🛰️ aucune eau détectée" in texte and "Prudence" in texte
       and "Médina et Thiaroye-sur-Mer" in texte)
@@ -157,6 +157,21 @@ texte, tableau, fig, _ = app.comparer(["Grand Yoff"], {})
 ok = fig is None and "au moins 2 communes" in texte and len(tableau) == 0
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] 1 seule commune : message d'invitation, pas de tableau ni de graphique")
+
+# =====================================================================================
+print("\n=== 5. Niveau de confiance ===")
+for commune, attendu, pourquoi in [
+    ("Pikine Ouest", "Haute", "classement robuste, eau détectée"),
+    ("Yeumbeul Nord", "Moyenne", "classement non robuste, eau détectée"),
+    ("Sicap-Liberté", "Moyenne", "classement robuste, aucune eau détectée"),
+    ("Thiaroye-sur-Mer", "Faible", "classement non robuste ET aucune eau détectée"),
+]:
+    niveau = app.niveau_confiance(commune)
+    badge = app.badge_confiance(commune)
+    ok = (niveau == attendu and f"Confiance {attendu.lower()}" in badge and 'title="Confiance' in badge
+          and f"Confiance {attendu.lower()}" in app.fiche_commune(commune))
+    resultats.append(ok)
+    print(f"[{'OK' if ok else 'ÉCHEC'}] {commune} → {niveau} (attendu {attendu} : {pourquoi})")
 
 print(f"\n{sum(resultats)}/{len(resultats)} scénarios réussis")
 sys.exit(0 if all(resultats) else 1)

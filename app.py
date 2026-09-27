@@ -98,6 +98,51 @@ def donnees_commune(commune):
     }
 
 
+# --- Niveau de confiance ------------------------------------------------------------------
+
+# Palette « statut » (vert / ambre / rouge), distincte de l'échelle jaune → rouge du risque :
+# la pastille porte toujours un symbole et le mot « Confiance », jamais la couleur seule.
+CONFIANCE = {"Haute": ("#0ca30c", "✓", "🟢"), "Moyenne": ("#fab219", "!", "🟠"), "Faible": ("#d03b3b", "✕", "🔴")}
+
+
+def niveau_confiance(commune):
+    """'Haute', 'Moyenne' ou 'Faible' selon les deux drapeaux de fiabilité.
+
+    commune : nom de la commune ou dictionnaire donnees_commune(nom).
+    Haute   : classement robuste ET eau détectable par satellite
+    Moyenne : un seul des deux problèmes
+    Faible  : classement non robuste ET aucune eau détectée par satellite
+    """
+    d = donnees_commune(commune) if isinstance(commune, str) else commune
+    problemes = (not d["classement_robuste"]) + bool(d["alerte_detection_s1"])
+    return ["Haute", "Moyenne", "Faible"][problemes]
+
+
+def explication_confiance(commune):
+    """Une phrase qui justifie le niveau (texte du survol)."""
+    d = donnees_commune(commune) if isinstance(commune, str) else commune
+    niveau = niveau_confiance(d)
+    instable = (f"classement sensible aux indicateurs utilisés (rang {d['rang']} au score complet, "
+                f"{d['rang_altitude_seule']} avec l'altitude seule)")
+    radar = "aucune eau détectée par satellite, ce qui peut refléter la limite du radar en bâti dense"
+    if niveau == "Haute":
+        return "Confiance haute : classement stable quels que soient les indicateurs, et eau visible par le satellite."
+    if niveau == "Faible":
+        return f"Confiance faible : {instable}, et {radar}."
+    return f"Confiance moyenne : {instable}." if not d["classement_robuste"] else \
+        f"Confiance moyenne : classement stable, mais {radar}."
+
+
+def badge_confiance(commune):
+    """Pastille HTML colorée avec explication au survol (attribut title)."""
+    niveau = niveau_confiance(commune)
+    couleur, symbole, _ = CONFIANCE[niveau]
+    return (f'<span title="{html.escape(explication_confiance(commune), quote=True)}" '
+            f'style="display:inline-block;padding:2px 10px;border-radius:999px;background:{couleur};'
+            f'color:#0b0b0b;font-weight:600;font-size:0.85em;cursor:help;vertical-align:middle;">'
+            f'{symbole} Confiance {niveau.lower()}</span>')
+
+
 def fiche_commune(commune):
     d = donnees_commune(commune)
     zone = f" · zone prioritaire **{d['zone_prioritaire']}**" if d["zone_prioritaire"] else ""
@@ -106,7 +151,7 @@ def fiche_commune(commune):
         f"Département de {d['departement']}{zone}",
         "",
         f"### Risque {d['classe_risque'].lower()} — score {d['score_risque']:.0f}/100 "
-        f"(rang {d['rang']} sur {d['nb_communes']})",
+        f"(rang {d['rang']} sur {d['nb_communes']}) {badge_confiance(d)}",
         "",
         "| Indicateur | Valeur |",
         "|---|---|",
@@ -302,6 +347,7 @@ def _avertissements(d):
 def tableau_comparaison(donnees):
     """Communes en colonnes, indicateurs en lignes."""
     lignes = {
+        "Niveau de confiance": [explication_confiance(d) for d in donnees],
         "Classe de risque": [d["classe_risque"] for d in donnees],
         "Score de risque (0-100)": [f"{d['score_risque']:.0f}" for d in donnees],
         "Rang (1 = le plus exposé)": [f"{d['rang']} / {d['nb_communes']}" for d in donnees],
@@ -318,7 +364,9 @@ def tableau_comparaison(donnees):
             "⚠️ aucune eau détectée (limite radar en bâti dense)" if d["alerte_detection_s1"] else "✅ eau détectée"
             for d in donnees],
     }
-    entetes = [d["commune"] + (" ⚠️" if _avertissements(d) else "") for d in donnees]
+    # Les en-têtes de gr.Dataframe sont du texte brut : rond coloré + niveau écrit (pas d'infobulle possible,
+    # l'explication est dans la ligne « Niveau de confiance » et dans les pastilles au-dessus du tableau)
+    entetes = [f"{d['commune']} {CONFIANCE[niveau_confiance(d)][2]} {niveau_confiance(d).lower()}" for d in donnees]
     return pd.DataFrame([[indic, *vals] for indic, vals in lignes.items()], columns=["Indicateur", *entetes])
 
 
@@ -427,6 +475,7 @@ def comparer(selection, couleurs):
         for a in _avertissements(d):
             avertissements.append(f"- **{d['commune']}** : {a}")
     texte = synthese_comparaison(donnees)
+    texte += "\n\n" + " &nbsp; ".join(f"**{d['commune']}** {badge_confiance(d)}" for d in donnees)
     if avertissements:
         texte += "\n\n**Avertissements par commune**\n" + "\n".join(avertissements)
     return texte, tableau_comparaison(donnees), graphique_comparaison(donnees, couleurs), couleurs
