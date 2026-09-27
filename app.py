@@ -11,7 +11,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from explication_ia import expliquer_commune
+from explication_ia import expliquer_commune, repondre_question_libre
 
 FICHIER_SCORE = Path(__file__).parent / "data" / "processed" / "score_risque_communes.geojson"
 
@@ -26,6 +26,12 @@ COMMUNES = pd.DataFrame([f["properties"] for f in GEOJSON["features"]]).set_inde
 COMMUNES.index.name = None
 FEATURES = {f["properties"]["commune"]: f for f in GEOJSON["features"]}
 NB_COMMUNES = len(COMMUNES)
+
+# Rang de chaque commune sur chaque indicateur (1 = la plus exposée), pour que l'IA n'ait pas
+# à interpréter elle-même si une valeur brute est « haute » ou « basse »
+RANG_ALTITUDE = COMMUNES["alt_mediane_m"].rank(method="min").astype(int)                  # 1 = la plus basse
+RANG_CUVETTES = COMMUNES["pct_depression"].rank(ascending=False, method="min").astype(int)
+RANG_EAU = COMMUNES["pct_eau_stagnante_moyen"].rank(ascending=False, method="min").astype(int)
 
 
 def centre(feature):
@@ -58,6 +64,9 @@ def donnees_commune(commune):
         "ecart_rang_max": int(c["ecart_rang_max"]),
         "rang_sans_s1": int(c["rang_sans_s1"]),
         "rang_altitude_seule": int(c["rang_altitude_seule"]),
+        "rang_ind_altitude": int(RANG_ALTITUDE[commune]),
+        "rang_ind_cuvettes": int(RANG_CUVETTES[commune]),
+        "rang_ind_eau": int(RANG_EAU[commune]),
         "alerte_detection_s1": c["alerte_detection_s1"] if isinstance(c["alerte_detection_s1"], str) else "",
     }
 
@@ -127,8 +136,32 @@ def expliquer(commune):
     return texte
 
 
+def chat_vide(commune):
+    """Chat remis à zéro pour la commune sélectionnée."""
+    return gr.Chatbot(value=[], label=f"💬 Questions sur {commune}")
+
+
 def selectionner(commune):
-    return carte(commune), fiche_commune(commune), ""
+    # Changer de commune réinitialise l'explication, le chat et la zone de saisie
+    return carte(commune), fiche_commune(commune), "", chat_vide(commune), ""
+
+
+# --- Chat : questions libres sur la commune sélectionnée ---------------------------------
+
+def ajouter_question(question, historique):
+    """Étape 1 : affiche tout de suite la question dans le chat et vide la zone de saisie."""
+    question = (question or "").strip()
+    if not question:
+        return historique, ""
+    return (historique or []) + [{"role": "user", "content": question}], ""
+
+
+def repondre(historique, commune):
+    """Étape 2 : génère la réponse (5 s maximum, réponse de secours sinon)."""
+    if not historique or historique[-1]["role"] != "user":
+        return historique
+    texte, _source = repondre_question_libre(donnees_commune(commune), historique[-1]["content"], historique[:-1])
+    return historique + [{"role": "assistant", "content": texte}]
 
 
 # --- Interface ---------------------------------------------------------------------------
@@ -158,11 +191,23 @@ with gr.Blocks(title="Risque d'inondation — Dakar") as demo:
             fiche = gr.Markdown(fiche_commune(DEFAUT))
             bouton = gr.Button("🤖 Expliquer ce risque", variant="primary")
             explication = gr.Markdown()
+            chat = gr.Chatbot(value=[], label=f"💬 Questions sur {DEFAUT}", height=380, buttons=["copy"],
+                              placeholder="Posez une question sur la commune sélectionnée : l'assistant "
+                                          "répond à partir des seules données de l'observatoire.")
+            question = gr.Textbox(show_label=False, placeholder="Ex. : Pourquoi ce classement ?",
+                                  submit_btn="Envoyer", max_length=500)
+            gr.Examples(examples=["Pourquoi ce classement ?",
+                                  "Quelles sont les limites des données ?",
+                                  "Que faire chez moi en cas de forte pluie ?"],
+                        inputs=question, label="Exemples de questions")
     with gr.Accordion("Méthode et limites", open=False):
         gr.Markdown(A_PROPOS)
 
-    choix_commune.change(selectionner, inputs=choix_commune, outputs=[carte_plot, fiche, explication])
+    choix_commune.change(selectionner, inputs=choix_commune,
+                         outputs=[carte_plot, fiche, explication, chat, question])
     bouton.click(expliquer, inputs=choix_commune, outputs=explication)
+    question.submit(ajouter_question, inputs=[question, chat], outputs=[chat, question]) \
+            .then(repondre, inputs=[chat, choix_commune], outputs=chat)
 
 if __name__ == "__main__":
     demo.launch(theme=gr.themes.Soft())
