@@ -109,11 +109,25 @@ else:
 
 # =====================================================================================
 print("\n=== 3. Interface : changement de commune ===")
-sortie = app.selectionner("Pikine Ouest")
-chat = sortie[3]
-ok = chat.value == [] and "Pikine Ouest" in chat.label and sortie[4] == "" and sortie[2] == ""
+sortie = app.selectionner("Pikine Ouest", "Carte 3D")   # (carte 2D, carte 3D, fiche, explication, chat, saisie)
+chat = sortie[4]
+ok = chat.value == [] and "Pikine Ouest" in chat.label and sortie[5] == "" and sortie[3] == ""
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] le chat, l'explication et la saisie sont réinitialisés (label : {chat.label})")
+
+t0 = time.time()
+tailles = [len(app.carte_3d(c)) for c in app.COMMUNES.index]
+ok = all(200_000 > t > 50_000 for t in tailles)
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] carte 3D générée pour les {len(tailles)} communes "
+      f"({max(tailles) // 1024} Ko max, {(time.time() - t0) / len(tailles):.2f} s par carte)")
+
+plot2d, html3d = app.cartes("Médina", "Carte 2D")
+plot2d_b, html3d_b = app.cartes("Médina", "Carte 3D")
+ok = (plot2d.visible and not html3d.visible and plot2d.value is not None
+      and html3d_b.visible and not plot2d_b.visible and "<iframe" in html3d_b.value)
+resultats.append(ok)
+print(f"[{'OK' if ok else 'ÉCHEC'}] bascule Carte 2D / Carte 3D : une seule carte visible à la fois")
 
 print(f"\n{sum(resultats)}/{len(resultats)} scénarios réussis")
 sys.exit(0 if all(resultats) else 1)

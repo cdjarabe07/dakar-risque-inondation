@@ -3,6 +3,7 @@
 Appli Gradio qui lit le résultat statique des notebooks 00 à 03
 (data/processed/score_risque_communes.geojson). Aucun calcul lourd ici.
 """
+import html
 import json
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import gradio as gr
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import pydeck as pdk
 
 from explication_ia import expliquer_commune, repondre_question_libre
 
@@ -32,6 +34,31 @@ NB_COMMUNES = len(COMMUNES)
 RANG_ALTITUDE = COMMUNES["alt_mediane_m"].rank(method="min").astype(int)                  # 1 = la plus basse
 RANG_CUVETTES = COMMUNES["pct_depression"].rank(ascending=False, method="min").astype(int)
 RANG_EAU = COMMUNES["pct_eau_stagnante_moyen"].rank(ascending=False, method="min").astype(int)
+
+
+def _arrondir(coords, decimales=5):
+    """Arrondit des coordonnées GeoJSON imbriquées (5 décimales ≈ 1 m) pour alléger la carte 3D."""
+    if isinstance(coords[0], (int, float)):
+        return [round(c, decimales) for c in coords]
+    return [_arrondir(c, decimales) for c in coords]
+
+
+def _rgba(hexa, alpha):
+    return [int(hexa[i:i + 2], 16) for i in (1, 3, 5)] + [alpha]
+
+
+# GeoJSON allégé pour la 3D : coordonnées arrondies, seulement les champs utiles.
+# Les champs sont dupliqués au niveau de l'entité ET dans "properties" : l'infobulle de pydeck
+# les trouve ainsi quelle que soit sa façon de lire l'objet survolé.
+FEATURES_3D = {}
+for _f in GEOJSON["features"]:
+    _p = _f["properties"]
+    _champs = {"commune": _p["commune"], "classe_risque": _p["classe_risque"],
+               "score": round(_p["score_risque"]), "rang": _p["rang"],
+               "hauteur": max(_p["score_risque"], 1.0)}   # hauteur min. 1 pour que le score 0 reste visible
+    FEATURES_3D[_p["commune"]] = {"type": "Feature", **_champs, "properties": _champs,
+                                  "geometry": {"type": _f["geometry"]["type"],
+                                               "coordinates": _arrondir(_f["geometry"]["coordinates"])}}
 
 
 def centre(feature):
@@ -129,6 +156,62 @@ def carte(commune=None):
     return fig
 
 
+ECHELLE_HAUTEUR = 12   # score 100 → 1 200 m d'extrusion : relief lisible sans murs qui cachent les voisins
+
+
+def _collection(noms, alpha):
+    features = []
+    for nom in noms:
+        f = dict(FEATURES_3D[nom])
+        couleur = _rgba(COULEURS[f["classe_risque"]], alpha)
+        f["properties"] = {**f["properties"], "couleur": couleur}
+        f["couleur"] = couleur
+        features.append(f)
+    return {"type": "FeatureCollection", "features": features}
+
+
+def carte_3d(commune=None):
+    """Carte 3D pydeck : hauteur = score de risque, couleur = classe (même palette que la 2D).
+
+    Rendue dans un iframe (srcdoc) : gr.HTML n'exécute pas les <script> insérés directement,
+    alors qu'un iframe charge la page pydeck complète et isolée.
+    """
+    autres = [n for n in FEATURES_3D if n != commune]
+    commun = dict(extruded=True, get_elevation="properties.hauteur", elevation_scale=ECHELLE_HAUTEUR,
+                  get_fill_color="properties.couleur", pickable=True, auto_highlight=True,
+                  highlight_color=[255, 255, 255, 90])
+    # Les autres communes sont atténuées quand une commune est sélectionnée, pour la faire ressortir
+    couches = [pdk.Layer("GeoJsonLayer", _collection(autres, 140 if commune else 235), id="communes", **commun)]
+    if commune:
+        # Commune sélectionnée : couleur pleine et arêtes noires
+        couches.append(pdk.Layer("GeoJsonLayer", _collection([commune], 255), id="selection",
+                                 wireframe=True, get_line_color=[20, 20, 20, 255], line_width_min_pixels=2,
+                                 **commun))
+        lat, lon = centre(FEATURES[commune])
+        vue = pdk.ViewState(latitude=lat, longitude=lon, zoom=11.8, pitch=45, bearing=-10)
+    else:
+        vue = pdk.ViewState(latitude=14.72, longitude=-17.33, zoom=9.7, pitch=40, bearing=-10)
+    deck = pdk.Deck(
+        layers=couches, initial_view_state=vue, map_provider="carto", map_style="light",
+        tooltip={"html": "<b>{commune}</b><br/>Risque : {classe_risque}<br/>Score : {score}/100 · rang {rang}/53",
+                 "style": {"fontSize": "13px", "backgroundColor": "#1f2937", "color": "white"}},
+    )
+    page = deck.to_html(as_string=True, notebook_display=False)
+    # pydeck insère sa configuration en JSON indenté (≈ 540 Ko) : la version compacte fait ≈ 150 Ko
+    config = deck.to_json()
+    page = page.replace(config, json.dumps(json.loads(config), separators=(",", ":"), ensure_ascii=False))
+    legende = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;">'
+        f'<span style="width:14px;height:14px;border-radius:3px;background:{COULEURS[c]};'
+        f'border:1px solid #999;display:inline-block;"></span>{c}</span>'
+        for c in CLASSES[::-1])
+    return (f'<iframe srcdoc="{html.escape(page, quote=True)}" title="Carte 3D du risque" '
+            f'style="width:100%;height:560px;border:0;border-radius:8px;"></iframe>'
+            f'<div style="font-size:13px;margin-top:6px;">Risque relatif : {legende}'
+            f'<br/><span style="opacity:0.75;">Hauteur ∝ score (0-100). Glisser pour déplacer, '
+            f'Ctrl + glisser (ou clic droit) pour pivoter, molette pour zoomer.</span></div>')
+
+
 # --- Explication par IA générative (Groq), avec réponse de secours ------------------------
 
 def expliquer(commune):
@@ -141,9 +224,20 @@ def chat_vide(commune):
     return gr.Chatbot(value=[], label=f"💬 Questions sur {commune}")
 
 
-def selectionner(commune):
+MODES_CARTE = ["Carte 3D", "Carte 2D"]
+
+
+def cartes(commune, mode):
+    """Affiche la carte du mode choisi et masque l'autre. Seule la carte visible est recalculée ;
+    la 3D est régénérée à chaque affichage, ce qui l'initialise à la bonne taille."""
+    if mode == "Carte 2D":
+        return gr.Plot(value=carte(commune), visible=True), gr.HTML(visible=False)
+    return gr.Plot(visible=False), gr.HTML(value=carte_3d(commune), visible=True)
+
+
+def selectionner(commune, mode):
     # Changer de commune réinitialise l'explication, le chat et la zone de saisie
-    return carte(commune), fiche_commune(commune), "", chat_vide(commune), ""
+    return (*cartes(commune, mode), fiche_commune(commune), "", chat_vide(commune), "")
 
 
 # --- Chat : questions libres sur la commune sélectionnée ---------------------------------
@@ -185,7 +279,11 @@ with gr.Blocks(title="Risque d'inondation — Dakar") as demo:
                 "Classement relatif des 53 communes de la région selon leur exposition physique aux inondations.")
     with gr.Row():
         with gr.Column(scale=3):
-            carte_plot = gr.Plot(value=carte(DEFAUT), show_label=False)
+            mode_carte = gr.Radio(MODES_CARTE, value=MODES_CARTE[0], show_label=False,
+                                  info="3D : la hauteur de chaque commune est proportionnelle à son score de risque. "
+                                       "Survolez une commune pour voir son score ; choisissez-la dans la liste pour le détail.")
+            carte_plot = gr.Plot(value=carte(DEFAUT), show_label=False, visible=False)
+            carte_html = gr.HTML(value=carte_3d(DEFAUT))
         with gr.Column(scale=2):
             choix_commune = gr.Dropdown(choices=CHOIX, value=DEFAUT, label="Commune", filterable=True)
             fiche = gr.Markdown(fiche_commune(DEFAUT))
@@ -203,8 +301,9 @@ with gr.Blocks(title="Risque d'inondation — Dakar") as demo:
     with gr.Accordion("Méthode et limites", open=False):
         gr.Markdown(A_PROPOS)
 
-    choix_commune.change(selectionner, inputs=choix_commune,
-                         outputs=[carte_plot, fiche, explication, chat, question])
+    choix_commune.change(selectionner, inputs=[choix_commune, mode_carte],
+                         outputs=[carte_plot, carte_html, fiche, explication, chat, question])
+    mode_carte.change(cartes, inputs=[choix_commune, mode_carte], outputs=[carte_plot, carte_html])
     bouton.click(expliquer, inputs=choix_commune, outputs=explication)
     question.submit(ajouter_question, inputs=[question, chat], outputs=[chat, question]) \
             .then(repondre, inputs=[chat, choix_commune], outputs=chat)
