@@ -71,7 +71,7 @@ NOTE_COUCHE = {
                 "En 3D, la hauteur est proportionnelle au score.",
     COUCHES[1]: "**Couleur = % de la surface où le radar Sentinel-1 a détecté de l'eau stagnante** (moyenne de "
                 "3 images prises juste après de fortes pluies, 2024-2025). En 3D, la hauteur est proportionnelle "
-                "à ce pourcentage. ⚠️ **Détection moins fiable en tissu urbain dense** : une commune grise n'est "
+                "à ce pourcentage. **Attention : détection moins fiable en tissu urbain dense** : une commune grise n'est "
                 "pas forcément épargnée par les inondations.",
 }
 
@@ -131,8 +131,8 @@ def donnees_commune(commune):
 # --- Niveau de confiance ------------------------------------------------------------------
 
 # Palette « statut » (vert / ambre / rouge), distincte de l'échelle jaune → rouge du risque :
-# la pastille porte toujours un symbole et le mot « Confiance », jamais la couleur seule.
-CONFIANCE = {"Haute": ("#0ca30c", "✓", "🟢"), "Moyenne": ("#fab219", "!", "🟠"), "Faible": ("#d03b3b", "✕", "🔴")}
+# la pastille porte toujours le mot « Confiance … », jamais la couleur seule.
+CONFIANCE = {"Haute": "#0ca30c", "Moyenne": "#fab219", "Faible": "#d03b3b"}
 
 
 def niveau_confiance(commune):
@@ -166,11 +166,11 @@ def explication_confiance(commune):
 def badge_confiance(commune):
     """Pastille HTML colorée avec explication au survol (attribut title)."""
     niveau = niveau_confiance(commune)
-    couleur, symbole, _ = CONFIANCE[niveau]
+    couleur = CONFIANCE[niveau]
     return (f'<span title="{html.escape(explication_confiance(commune), quote=True)}" '
             f'style="display:inline-block;padding:2px 10px;border-radius:999px;background:{couleur};'
             f'color:#0b0b0b;font-weight:600;font-size:0.85em;cursor:help;vertical-align:middle;">'
-            f'{symbole} Confiance {niveau.lower()}</span>')
+            f'Confiance {niveau.lower()}</span>')
 
 
 def fiche_commune(commune):
@@ -193,12 +193,12 @@ def fiche_commune(commune):
         "",
     ]
     if not d["classement_robuste"]:
-        lignes.append(f"> ⚠️ **Classement incertain** : rang {d['rang']} au score complet, "
+        lignes.append(f"> **Attention — classement incertain** : rang {d['rang']} au score complet, "
                       f"rang {d['rang_sans_s1']} sans le satellite, rang {d['rang_altitude_seule']} "
                       f"avec l'altitude seule. À interpréter avec prudence.")
         lignes.append("")
     if d["alerte_detection_s1"]:
-        lignes.append("> 🛰️ **Limite satellite** : aucune eau détectée par le radar Sentinel-1. "
+        lignes.append("> **Attention — limite satellite** : aucune eau détectée par le radar Sentinel-1. "
                       "En bâti dense, le radar ne voit pas l'eau entre les maisons : "
                       "cela ne prouve pas l'absence d'inondation.")
     return "\n".join(lignes)
@@ -314,7 +314,7 @@ def carte_3d(commune=None, couche=COUCHES[0], rotation=False):
         page = page.replace("</html>", _script_rotation(vue) + "\n</html>")
     if couche == COUCHES[1]:
         titre, classes, palette = "Eau détectée (satellite)", CLASSES_EAU[::-1], COULEURS_EAU
-        aide = ("Hauteur ∝ % de surface en eau stagnante détectée. ⚠️ Détection moins fiable en tissu urbain "
+        aide = ("Hauteur ∝ % de surface en eau stagnante détectée. Attention : détection moins fiable en tissu urbain "
                 "dense : une commune grise n'est pas forcément épargnée.")
     else:
         titre, classes, palette = "Risque relatif", CLASSES[::-1], COULEURS
@@ -340,7 +340,7 @@ def expliquer(commune):
 
 def chat_vide(commune):
     """Chat remis à zéro pour la commune sélectionnée."""
-    return gr.Chatbot(value=[], label=f"💬 Questions sur {commune}")
+    return gr.Chatbot(value=[], label=f"Questions sur {commune}")
 
 
 MODES_CARTE = ["Carte 3D", "Carte 2D"]
@@ -360,7 +360,7 @@ def selectionner(commune, mode, couche=COUCHES[0], rotation=False):
 
 
 def libelle_rotation(rotation):
-    return "⏹️ Arrêter la rotation" if rotation else "🔄 Rotation auto"
+    return "Arrêter la rotation" if rotation else "Rotation automatique"
 
 
 def afficher_cartes(commune, mode, couche, rotation):
@@ -426,10 +426,10 @@ def attribuer_couleurs(selection, couleurs):
 def _avertissements(d):
     alertes = []
     if not d["classement_robuste"]:
-        alertes.append(f"⚠️ classement incertain (rang {d['rang']} au score complet, "
+        alertes.append(f"classement incertain (rang {d['rang']} au score complet, "
                        f"{d['rang_altitude_seule']} avec l'altitude seule)")
     if d["alerte_detection_s1"]:
-        alertes.append("🛰️ aucune eau détectée par satellite : limite du radar en bâti dense, "
+        alertes.append("aucune eau détectée par satellite : limite du radar en bâti dense, "
                        "pas une preuve d'absence d'inondation")
     return alertes
 
@@ -447,16 +447,16 @@ def tableau_comparaison(donnees):
         "Eau permanente": [f"{d['pct_eau_permanente']:.1f} %" for d in donnees],
         "Surface terrestre": [f"{d['surface_km2']:.1f} km²" for d in donnees],
         "Fiabilité du classement": [
-            "✅ stable" if d["classement_robuste"]
-            else f"⚠️ incertain (rang {d['rang']} → {d['rang_altitude_seule']} selon les indicateurs)"
+            "Stable" if d["classement_robuste"]
+            else f"Incertain (rang {d['rang']} → {d['rang_altitude_seule']} selon les indicateurs)"
             for d in donnees],
         "Détection satellite": [
-            "⚠️ aucune eau détectée (limite radar en bâti dense)" if d["alerte_detection_s1"] else "✅ eau détectée"
+            "Aucune eau détectée (limite radar en bâti dense)" if d["alerte_detection_s1"] else "Eau détectée"
             for d in donnees],
     }
-    # Les en-têtes de gr.Dataframe sont du texte brut : rond coloré + niveau écrit (pas d'infobulle possible,
+    # Les en-têtes de gr.Dataframe sont du texte brut : niveau écrit (pas de couleur ni d'infobulle possible,
     # l'explication est dans la ligne « Niveau de confiance » et dans les pastilles au-dessus du tableau)
-    entetes = [f"{d['commune']} {CONFIANCE[niveau_confiance(d)][2]} {niveau_confiance(d).lower()}" for d in donnees]
+    entetes = [f"{d['commune']} (confiance {niveau_confiance(d).lower()})" for d in donnees]
     return pd.DataFrame([[indic, *vals] for indic, vals in lignes.items()], columns=["Indicateur", *entetes])
 
 
@@ -471,12 +471,12 @@ def graphique_comparaison(donnees, couleurs):
                   f"altitude médiane {d['altitude_mediane_m']:.1f} m",
                   f"{d['pct_cuvettes']:.0f} % de la surface en cuvette",
                   f"{d['pct_eau_detectee']:.2f} % de la surface en eau"]
-        # Le ⚠ marque les valeurs à lire avec prudence (score incertain, eau non détectable en bâti dense)
-        textes = [f"{v:.0f}" + (" ⚠" if (i == 0 and not d["classement_robuste"])
+        # L'astérisque marque les valeurs à lire avec prudence (score incertain, eau non détectable en bâti dense)
+        textes = [f"{v:.0f}" + (" *" if (i == 0 and not d["classement_robuste"])
                                 or (i == 3 and d["alerte_detection_s1"]) else "")
                   for i, v in enumerate(valeurs)]
         fig.add_trace(go.Bar(
-            name=c + (" ⚠️" if _avertissements(d) else ""), x=indicateurs, y=valeurs,
+            name=c + (" *" if _avertissements(d) else ""), x=indicateurs, y=valeurs,
             marker=dict(color=COULEURS_COMPARAISON[couleurs[c]], line=dict(color=SURFACE_GRAPHIQUE, width=2)),
             text=textes, textposition="outside", textfont=dict(color=TEXTE_1, size=12), cliponaxis=False,
             customdata=brutes,
@@ -546,9 +546,9 @@ def synthese_comparaison(donnees):
         if radar:
             prudence.append("aucune eau n'a été détectée par satellite à " + _enumerer(radar)
                             + ", ce qui peut refléter la limite du radar en bâti dense")
-        parties.append("⚠️ **Prudence** : " + " ; ".join(prudence) + ".")
+        parties.append("**Attention** : " + " ; ".join(prudence) + ".")
     else:
-        parties.append("✅ Les classements de ces communes sont stables selon les indicateurs retenus.")
+        parties.append("Les classements de ces communes sont stables selon les indicateurs retenus.")
     return " ".join(parties)
 
 
@@ -593,12 +593,12 @@ THEME = gr.themes.Soft(primary_hue="blue", secondary_hue="cyan", neutral_hue="sl
 
 # Titre de l'onglet du navigateur : dans Gradio 6, il se règle dans gr.Blocks(title=...), pas dans launch()
 with gr.Blocks(title="Risque Inondation Dakar") as demo:
-    gr.Markdown("# 🌊 Observatoire du Risque d'Inondation — Dakar\n"
+    gr.Markdown("# Observatoire du Risque d'Inondation — Dakar\n"
                 "### L'IA explique le risque, elle ne le décide pas.")
 
     with gr.Tabs():
         # --- Onglet 1 : carte, fiche détail et chat IA ---------------------------------------
-        with gr.Tab("🗺️ Carte"):
+        with gr.Tab("Carte"):
             with gr.Row(equal_height=False):
                 with gr.Column(scale=3):
                     rotation_etat = gr.State(False)
@@ -620,9 +620,9 @@ with gr.Blocks(title="Risque Inondation Dakar") as demo:
                         fiche = gr.Markdown(fiche_commune(DEFAUT))
                     # Bouton, explication et chat hors gr.Group : dans un groupe, le chat prenait une bordure
                     # épaisse et l'explication encore vide formait une bande grise
-                    bouton = gr.Button("🤖 Expliquer ce risque", variant="primary")
+                    bouton = gr.Button("Expliquer ce risque", variant="primary")
                     explication = gr.Markdown()
-                    chat = gr.Chatbot(value=[], label=f"💬 Questions sur {DEFAUT}", height=380,
+                    chat = gr.Chatbot(value=[], label=f"Questions sur {DEFAUT}", height=380,
                                       buttons=["copy"],
                                       placeholder="Posez une question sur la commune sélectionnée : "
                                                   "l'assistant répond à partir des seules données de "
@@ -635,7 +635,7 @@ with gr.Blocks(title="Risque Inondation Dakar") as demo:
                                 inputs=question, label="Exemples de questions")
 
         # --- Onglet 2 : comparaison de 2 ou 3 communes ----------------------------------------
-        with gr.Tab("⚖️ Comparer des communes"):
+        with gr.Tab("Comparer des communes"):
             _texte0, _tableau0, _graph0, _couleurs0 = comparer(COMPARAISON_DEFAUT, {})
             couleurs_comparaison = gr.State(_couleurs0)
             with gr.Group():
@@ -651,7 +651,7 @@ with gr.Blocks(title="Risque Inondation Dakar") as demo:
             comp_graphique = gr.Plot(value=_graph0, show_label=False)
             gr.Markdown("<sub>Échelle commune 0-100 : 0 = la commune la moins exposée des 53 sur cet "
                         "indicateur, 100 = la plus exposée (score de risque, altitude basse, part en cuvette, "
-                        "eau détectée). ⚠ = valeur à lire avec prudence (classement incertain ou eau non "
+                        "eau détectée). * = valeur à lire avec prudence (classement incertain ou eau non "
                         "détectable en bâti dense). Survolez une barre pour la valeur brute.</sub>")
 
     with gr.Accordion("Méthode et limites", open=False):

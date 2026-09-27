@@ -132,17 +132,17 @@ print(f"[{'OK' if ok else 'ÉCHEC'}] bascule Carte 2D / Carte 3D : une seule car
 # =====================================================================================
 print("\n=== 4. Comparaison de communes ===")
 texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Malika"], {})
-ok = (list(tableau.columns) == ["Indicateur", "Pikine Ouest 🟢 haute", "Malika 🟢 haute"] and len(fig.data) == 2
-      and "Pikine Ouest** a le score le plus élevé" in texte and "stables" in texte and "⚠️" not in texte)
+ok = (list(tableau.columns) == ["Indicateur", "Pikine Ouest (confiance haute)", "Malika (confiance haute)"] and len(fig.data) == 2
+      and "Pikine Ouest** a le score le plus élevé" in texte and "stables" in texte and "Attention" not in texte)
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] 2 communes sans alerte : tableau 2 colonnes, 2 séries, synthèse sans avertissement")
 
 texte, tableau, fig, coul = app.comparer(["Pikine Ouest", "Thiaroye-sur-Mer", "Médina"], coul)
 col_thiaroye = [c for c in tableau.columns if c.startswith("Thiaroye")][0]
 valeurs_thiaroye = " ".join(tableau[col_thiaroye])
-ok = (len(tableau.columns) == 4 and len(fig.data) == 3 and col_thiaroye.endswith("🔴 faible")
-      and "aucune eau détectée" in valeurs_thiaroye and "incertain" in valeurs_thiaroye
-      and "**Thiaroye-sur-Mer** : 🛰️ aucune eau détectée" in texte and "Prudence" in texte
+ok = (len(tableau.columns) == 4 and len(fig.data) == 3 and col_thiaroye.endswith("(confiance faible)")
+      and "Aucune eau détectée" in valeurs_thiaroye and "Incertain" in valeurs_thiaroye
+      and "**Thiaroye-sur-Mer** : aucune eau détectée" in texte and "**Attention**" in texte
       and "Médina et Thiaroye-sur-Mer" in texte)
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] 3 communes dont Thiaroye-sur-Mer (alerte satellite) : avertissement dans "
@@ -185,7 +185,7 @@ print(f"[{'OK' if ok else 'ÉCHEC'}] carte 2D : couleurs et légende changent av
 
 h_eau = app.carte_3d("Médina", "Eau détectée (satellite)")
 # « properties.hauteur_eau » = expression de hauteur de la couche 3D (le champ existe dans les données des 2 couches)
-ok = ("properties.hauteur_eau" in h_eau and "Détection moins fiable en tissu urbain" in h_eau
+ok = ("properties.hauteur_eau" in h_eau and "Attention : détection moins fiable en tissu urbain" in h_eau
       and "properties.hauteur_eau" not in app.carte_3d("Médina"))
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] carte 3D : hauteur et légende de la couche eau, avec rappel de la limite")
@@ -197,8 +197,8 @@ print(f"[{'OK' if ok else 'ÉCHEC'}] rotation : script présent seulement si act
 
 etat, html3d, bouton = app.basculer_rotation(False, "Médina", "Score de risque")
 etat2, html3d2, bouton2 = app.basculer_rotation(etat, "Médina", "Score de risque")
-ok = (etat and "deckInstance.setProps" in html3d.value and "Arrêter" in bouton.value
-      and not etat2 and "deckInstance.setProps" not in html3d2.value and "Rotation auto" in bouton2.value)
+ok = (etat and "deckInstance.setProps" in html3d.value and bouton.value == "Arrêter la rotation"
+      and not etat2 and "deckInstance.setProps" not in html3d2.value and bouton2.value == "Rotation automatique")
 resultats.append(ok)
 print(f"[{'OK' if ok else 'ÉCHEC'}] bouton : 1er clic lance la rotation, 2e clic revient à la vue fixe")
 

@@ -6,7 +6,7 @@ Zones prioritaires de l'étude : Pikine, Guédiawaye, Médina, Yeumbeul et Grand
 
 ![Score de risque relatif par commune](outputs/apercu_score_risque.png)
 
-> ⚠️ **À lire avant d'utiliser les résultats.** Le score est *relatif* : il compare les communes entre elles et **n'est pas une probabilité d'inondation**. Seules 13 communes sur 53 ont un classement stable quels que soient les indicateurs retenus, et le radar satellite ne voit pas l'eau en bâti dense. Toutes les limites sont détaillées [plus bas](#limites-méthodologiques).
+> **À lire avant d'utiliser les résultats.** Le score est *relatif* : il compare les communes entre elles et **n'est pas une probabilité d'inondation**. Seules 13 communes sur 53 ont un classement stable quels que soient les indicateurs retenus, et le radar satellite ne voit pas l'eau en bâti dense. Toutes les limites sont détaillées [plus bas](#limites-méthodologiques).
 
 ## Ce que fait l'appli
 
