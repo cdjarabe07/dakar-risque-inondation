@@ -1,0 +1,19 @@
+# Dépendances des notebooks 00 à 03 (analyse). Testé avec Python 3.13.11 (Windows).
+requests==2.33.1
+pandas==3.0.3
+numpy==2.4.4
+matplotlib==3.10.9
+scipy==1.18.0
+geopandas==1.1.4
+shapely==2.1.2
+pyproj==3.8.0
+rasterio==1.5.1
+rasterstats==0.21.0
+folium==0.20.0
+sentinelhub==3.12.0
+notebook==7.5.6
+ipykernel==7.2.0
+# Pour lancer aussi l'appli en local :
+gradio==6.28.0
+plotly==6.9.0
+groq==1.7.0

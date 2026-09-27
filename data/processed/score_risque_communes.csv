@@ -1,0 +1,54 @@
+osm_id,commune,departement,zone_prioritaire,prioritaire,score_risque,classe_risque,rang,alt_mediane_m,pct_sous_5m,pct_depression,pct_eau_stagnante_moyen,nb_dates_sup_1pct,pct_eau_permanente,pente_moy_deg,z_altitude_basse,z_cuvettes,z_eau_s1,rang_sans_s1,rang_altitude_seule,ecart_rang_max,classement_robuste,alerte_detection_s1,surface_km2
+12989303,Pikine Ouest,Pikine,Pikine,True,100.0,Très élevé,1,2.34,65.67,44.42,0.07,0,19.54,1.52,1.282,1.851,0.578,2,1,1,True,,5.759
+12982148,Malika,Keur Massar,,False,95.1,Très élevé,2,5.3,47.01,34.68,0.27,0,14.07,1.85,0.901,0.959,1.501,4,5,3,True,,10.86
+12982162,Bargny,Rufisque,,False,94.1,Très élevé,3,7.7,34.08,33.08,0.46,0,7.42,1.68,0.592,0.812,1.883,6,21,18,False,,12.998
+12982153,Tivaouane Peulh-Niaga,Rufisque,,False,91.1,Très élevé,4,5.92,43.14,23.93,0.79,1,16.05,1.3,0.821,-0.026,2.275,13,11,9,True,,67.782
+12982140,Medina Gounass,Guédiawaye,Guédiawaye,True,86.6,Très élevé,5,6.84,7.13,58.23,0.0,0,0.03,2.06,0.703,3.0,-0.953,1,17,16,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",0.733
+12982141,Wakhinane Nimzatt,Guédiawaye,Guédiawaye,True,84.1,Très élevé,6,8.38,19.91,30.1,0.28,0,2.83,2.35,0.505,0.539,1.527,10,24,18,False,,4.35
+12982143,Ndiarème Limamoulaye,Guédiawaye,Guédiawaye,True,79.1,Très élevé,7,9.89,8.3,32.57,0.16,0,0.96,2.22,0.31,0.765,1.134,9,29,22,False,,1.304
+12982370,Cambérène,Dakar,,False,74.2,Très élevé,8,9.0,15.14,20.01,0.42,0,0.29,2.24,0.425,-0.385,1.817,26,26,18,False,,1.976
+12982147,Yeumbeul Nord,Keur Massar,Yeumbeul,True,73.2,Très élevé,9,7.66,23.25,26.92,0.12,0,2.35,1.69,0.597,0.248,0.936,12,20,11,False,,7.052
+12982155,Yenne,Rufisque,,False,72.0,Très élevé,10,22.07,11.91,40.7,0.25,0,8.13,2.19,-1.258,1.51,1.447,21,47,37,False,,41.909
+12982161,Sendou,Rufisque,,False,68.9,Très élevé,11,2.52,81.56,8.12,0.35,0,26.95,0.79,1.259,-1.474,1.687,27,2,25,False,,8.173
+12982371,Patte d'Oie,Dakar,,False,66.7,Élevé,12,17.17,27.1,46.99,0.02,0,3.07,2.39,-0.627,2.086,-0.144,5,41,36,False,,3.19
+6998697,Grand-Dakar,Dakar,,False,63.5,Élevé,13,12.23,16.64,46.36,0.0,0,0.03,2.0,0.009,2.028,-0.953,3,34,31,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.039
+12982149,Keur Massar Nord,Keur Massar,,False,63.0,Élevé,14,5.71,42.83,28.02,0.02,0,5.17,1.37,0.849,0.348,-0.144,8,8,6,True,,13.187
+12989396,Thiaroye-Gare,Pikine,Pikine,True,61.1,Élevé,15,7.71,1.36,11.04,0.28,0,0.37,1.49,0.591,-1.207,1.527,37,22,22,False,,1.586
+12989395,Tivaouane Diacksao,Pikine,Pikine,True,60.5,Élevé,16,5.84,15.2,12.75,0.15,0,0.84,1.27,0.832,-1.05,1.089,27,10,17,False,,1.079
+12988835,Hann Bel-Air,Dakar,,False,56.8,Élevé,17,5.62,41.64,18.93,0.04,0,0.45,2.15,0.86,-0.484,0.232,18,7,11,False,,12.575
+12982154,Bambylor,Rufisque,,False,53.3,Élevé,18,13.98,21.26,18.58,0.15,0,14.71,1.37,-0.216,-0.516,1.089,38,37,20,False,,64.542
+12989308,Djidah Thiaroye Kaw,Pikine,Pikine,True,53.2,Élevé,19,7.93,0.14,32.27,0.0,0,0.63,1.85,0.563,0.738,-0.953,7,23,16,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.887
+12989253,Fann-Point E-Amitié,Dakar,,False,51.7,Élevé,20,9.85,7.96,18.14,0.06,0,0.05,2.28,0.315,-0.557,0.48,31,28,11,False,,4.527
+12982144,Golf Sud,Guédiawaye,Guédiawaye,True,51.4,Élevé,21,14.03,13.78,28.27,0.03,0,0.25,2.81,-0.223,0.371,0.068,23,38,17,False,,4.265
+12989393,Mbao,Pikine,Pikine,True,51.1,Moyen,22,6.21,32.04,17.06,0.03,0,0.66,1.37,0.784,-0.656,0.068,24,12,12,False,,13.938
+12982157,Rufisque Ouest,Rufisque,,False,50.1,Moyen,23,12.87,7.1,15.55,0.13,0,0.54,1.33,-0.073,-0.794,0.991,43,35,20,False,,11.534
+12989305,Guinaw Rail Sud,Pikine,Pikine,True,49.5,Moyen,24,5.08,47.91,25.38,0.0,0,0.04,1.51,0.93,0.107,-0.953,11,4,20,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.356
+12982373,Grand Yoff,Dakar,Grand Yoff,True,49.4,Moyen,25,24.9,0.0,28.29,0.21,0,0.37,2.21,-1.623,0.373,1.324,47,48,23,False,,6.244
+12989397,Diamaguène-Sicap Mbao,Pikine,Pikine,True,49.3,Moyen,26,7.24,24.53,11.51,0.07,0,0.29,1.47,0.652,-1.164,0.578,35,18,17,False,,7.486
+12988609,Ngor,Dakar,,False,48.2,Moyen,27,6.4,32.67,20.6,0.01,0,1.08,2.78,0.76,-0.331,-0.443,16,14,13,False,,4.37
+12982142,Sam Notaire,Guédiawaye,Guédiawaye,True,46.7,Moyen,28,11.19,6.46,26.17,0.01,0,0.65,2.24,0.143,0.179,-0.443,19,31,12,False,,2.706
+12989302,Dalifort,Pikine,Pikine,True,46.1,Moyen,29,5.34,44.76,11.93,0.03,0,0.84,1.73,0.896,-1.125,0.068,30,6,24,False,,2.449
+12989307,Pikine Est,Pikine,Pikine,True,42.5,Moyen,30,8.44,0.12,24.58,0.0,0,0.07,1.71,0.497,0.033,-0.953,14,25,16,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",0.751
+12989255,Médina,Dakar,Médina,True,41.6,Moyen,31,6.26,33.01,20.8,0.0,0,0.05,1.99,0.778,-0.313,-0.953,15,13,18,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",2.341
+12989304,Pikine Nord,Pikine,Pikine,True,40.8,Moyen,32,11.58,21.37,27.69,0.0,0,0.41,2.24,0.093,0.318,-0.953,17,32,15,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.233
+12982150,Yeumbeul Sud,Keur Massar,Yeumbeul,True,39.0,Faible,33,9.33,1.0,23.07,0.0,0,0.0,1.68,0.382,-0.105,-0.953,20,27,13,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",2.613
+12988608,Yoff,Dakar,,False,38.7,Faible,34,20.93,3.36,28.01,0.03,0,4.86,1.76,-1.111,0.348,0.068,39,45,11,False,,14.592
+12989306,Guinaw Rail Nord,Pikine,Pikine,True,37.3,Faible,35,5.78,12.23,16.76,0.0,0,0.0,1.01,0.84,-0.683,-0.953,22,9,26,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",0.653
+12989254,Gueule Tapée-Fass-Colobane,Dakar,,False,36.8,Faible,36,6.39,18.17,17.2,0.0,0,0.03,1.81,0.761,-0.643,-0.953,25,14,22,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",2.03
+12982164,Diamniadio,Rufisque,,False,34.8,Faible,37,25.5,0.98,23.98,0.09,0,6.61,0.99,-1.7,-0.022,0.743,51,49,14,False,,72.639
+12982158,Rufisque Nord,Rufisque,,False,32.1,Faible,38,18.42,2.71,30.44,0.0,0,1.18,1.35,-0.788,0.57,-0.953,27,43,16,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",7.14
+12982163,Sébikhotane,Rufisque,,False,29.0,Faible,39,28.54,0.0,42.2,0.0,0,5.06,1.92,-2.091,1.647,-0.953,32,50,18,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",20.122
+12989256,Dakar-Plateau,Dakar,,False,28.8,Faible,40,13.97,25.45,21.59,0.0,0,0.06,4.62,-0.215,-0.241,-0.953,33,36,7,True,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",5.359
+12982160,Jaxaay - Parcelles,Keur Massar,,False,28.3,Faible,41,10.03,0.24,10.12,0.01,0,0.42,0.86,0.292,-1.291,-0.443,45,30,15,False,,6.705
+12988836,HLM,Dakar,,False,28.2,Faible,42,12.08,7.84,18.45,0.0,0,0.06,1.73,0.028,-0.528,-0.953,34,33,9,True,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.742
+12982167,Rufisque Est,Rufisque,,False,26.9,Très faible,43,16.97,18.71,24.31,0.0,0,1.15,1.69,-0.601,0.009,-0.953,36,40,7,True,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",8.137
+12982372,Parcelles Assainies,Dakar,,False,24.5,Très faible,44,18.4,5.68,18.83,0.01,0,0.06,2.29,-0.786,-0.493,-0.443,48,42,6,True,,3.895
+12989257,Gorée,Dakar,,False,23.6,Très faible,45,6.7,38.65,7.25,0.0,0,0.0,8.29,0.721,-1.554,-0.953,40,16,29,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",0.182
+12989394,Thiaroye-sur-Mer,Pikine,Pikine,True,23.4,Très faible,46,4.98,50.32,4.69,0.0,0,0.04,1.78,0.943,-1.789,-0.953,41,3,43,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",3.611
+13067451,Keur Massar Sud,Keur Massar,,False,23.1,Très faible,47,7.32,1.58,7.78,0.0,0,0.36,1.14,0.641,-1.506,-0.953,42,19,28,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",5.253
+12982168,Sangalkam,Rufisque,,False,22.5,Très faible,48,20.23,0.0,16.6,0.02,0,9.42,1.03,-1.021,-0.698,-0.144,50,44,6,True,,41.274
+12988837,Dieuppeul-Derklé,Dakar,,False,21.3,Très faible,49,21.96,0.0,26.91,0.0,0,0.04,1.73,-1.244,0.247,-0.953,44,46,5,True,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.344
+12988610,Ouakam,Dakar,,False,18.8,Très faible,50,32.09,0.94,33.64,0.01,0,0.28,3.79,-2.548,0.863,-0.443,49,52,3,True,,5.94
+4596980,Biscuiterie,Dakar,,False,18.0,Très faible,51,16.77,0.22,17.04,0.0,0,0.0,1.87,-0.576,-0.657,-0.953,46,39,12,False,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",1.216
+12988611,Mermoz-Sacré-Cœur,Dakar,,False,13.1,Très faible,52,29.52,1.17,25.53,0.01,0,0.05,2.82,-2.218,0.12,-0.443,52,51,1,True,,4.098
+12988838,Sicap-Liberté,Dakar,,False,0.0,Très faible,53,32.76,0.0,25.39,0.0,0,0.0,2.24,-2.635,0.108,-0.953,53,53,0,True,"Aucune eau détectée par satellite : peut refléter la limite du radar en bâti dense, pas l'absence d'inondation",3.186

@@ -1,0 +1,38 @@
+# --- Données brutes volumineuses (≈ 200 Mo) : se retéléchargent avec les notebooks 00 à 02 ---
+data/raw/
+
+# --- Secrets : clés API et configurations de comptes (ne jamais versionner) ---
+.env
+.env.*
+*.env
+secrets.*
+*.key
+*.pem
+# Profil Sentinel Hub / Copernicus (normalement dans ~/.config/sentinelhub, hors du projet)
+.config/
+config.toml
+sentinelhub*.toml
+# Jeton Hugging Face / Groq éventuellement copiés en local
+.huggingface/
+*token*.txt
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- Gradio (fichiers temporaires de l'appli) ---
+.gradio/
+flagged/
+
+# --- Système / éditeurs ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

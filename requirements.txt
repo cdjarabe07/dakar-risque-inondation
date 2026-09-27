@@ -1,0 +1,5 @@
+# Dépendances de l'appli (Hugging Face Space). Les notebooks utilisent requirements-analyse.txt.
+gradio==6.28.0
+plotly==6.9.0
+pandas==3.0.3
+groq==1.7.0
