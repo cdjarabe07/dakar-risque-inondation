@@ -1,60 +1,123 @@
 # Observatoire du risque d'inondation urbaine — Dakar
 
-Chantier 1 du projet « Dakar ville intelligente » : une carte du risque d'inondation par commune d'arrondissement de la région de Dakar. Les zones prioritaires sont Pikine, Guédiawaye, Médina, Yeumbeul et Grand Yoff.
+Premier chantier du projet « Dakar ville intelligente » : un **classement relatif des 53 communes d'arrondissement de la région de Dakar selon leur exposition physique aux inondations**. Il est construit à partir de données satellitaires et topographiques ouvertes, et rendu dans une appli web dont l'**IA générative explique chaque résultat et ses limites**.
 
-## Installation
+Zones prioritaires de l'étude : Pikine, Guédiawaye, Médina, Yeumbeul et Grand Yoff.
 
-Deux jeux de dépendances :
+![Score de risque relatif par commune](outputs/apercu_score_risque.png)
 
-| Fichier | Usage |
+> ⚠️ **À lire avant d'utiliser les résultats.** Le score est *relatif* : il compare les communes entre elles et **n'est pas une probabilité d'inondation**. Seules 13 communes sur 53 ont un classement stable quels que soient les indicateurs retenus, et le radar satellite ne voit pas l'eau en bâti dense. Toutes les limites sont détaillées [plus bas](#limites-méthodologiques).
+
+## Ce que fait l'appli
+
+| Fonction | Détail |
 |---|---|
-| `requirements.txt` | **l'appli seule** (gradio, plotly, pandas, groq), environ 4 minutes d'installation |
-| `requirements-analyse.txt` | les notebooks 00 à 03 (géospatial, Sentinel Hub) et l'appli |
+| **Carte 3D / 2D** | Carte pydeck où la hauteur de chaque commune est proportionnelle à son score, avec les mêmes couleurs par classe de risque que la carte Plotly 2D, disponible en option. |
+| **Fiche commune** | Score (0-100), classe, rang sur 53, altitude du sol, part en cuvette, eau détectée par satellite, eau permanente et surface. |
+| **Badge de confiance** | Haute, moyenne ou faible, selon la stabilité du classement et la détectabilité de l'eau par radar. Une phrase d'explication s'affiche au survol. |
+| **« Expliquer ce risque » (IA)** | Explication en français et conseils pratiques générés par un modèle de langage (Groq, `openai/gpt-oss-120b`), qui mentionne obligatoirement les limites de fiabilité de la commune. |
+| **Chat (IA)** | Questions libres sur la commune sélectionnée (« Pourquoi ce classement ? », « Quelles sont les limites des données ? »…). L'assistant répond uniquement à partir des données de l'observatoire et refuse poliment les questions hors sujet. |
+| **Comparaison** | 2 ou 3 communes côte à côte : tableau, graphique en barres sur une échelle commune de 0 à 100, synthèse automatique et avertissements par commune. |
 
-Pour travailler sur les notebooks (Python 3.13) :
+**Fiabilité de la partie IA.** Chaque appel à Groq est coupé au bout de **5 secondes**. En cas de dépassement, d'erreur, de clé absente ou de limite de requêtes atteinte, l'appli affiche une réponse **pré-rédigée** construite à partir des données de la commune :
+- une explication et des conseils adaptés à sa classe de risque pour le bouton ;
+- les données brutes pour le chat.
 
+Elle affiche toujours quelque chose, avec ou sans IA.
+
+## Installation et lancement de l'appli
+
+Python 3.11 ou plus récent (testé avec Python 3.13 sous Windows).
+
+```bash
+git clone https://github.com/cdjarabe07/dakar-risque-inondation.git
+cd dakar-risque-inondation
+python -m pip install -r requirements.txt
+python app.py
 ```
+
+Ouvrir ensuite **http://127.0.0.1:7860**.
+
+### Clé API Groq, facultative mais recommandée
+
+La partie IA a besoin d'une clé gratuite, à créer sur https://console.groq.com/keys, placée dans la variable d'environnement **`GROQ_API_KEY`** :
+
+```bash
+# Windows (puis rouvrir le terminal)
+setx GROQ_API_KEY "votre_clé"
+# Linux / macOS
+export GROQ_API_KEY="votre_clé"
+```
+
+- **Ne jamais écrire la clé dans le code** : elle est lue uniquement dans l'environnement.
+- **Sans clé, l'appli fonctionne quand même.** Carte, fiche, badge et comparaison n'utilisent pas l'IA, et le bouton comme le chat affichent la réponse pré-rédigée.
+- Le compte Groq gratuit limite le nombre de requêtes par minute. Au-delà d'une dizaine de questions en une minute, la réponse pré-rédigée prend le relais.
+
+### Connexion internet
+
+L'appli lit un fichier local (`data/processed/score_risque_communes.geojson`) et ne fait aucun calcul lourd. Le navigateur a toutefois besoin d'internet pour :
+- les fonds de carte (2D et 3D) ;
+- la bibliothèque 3D deck.gl ;
+- les appels à Groq.
+
+Hors ligne, la fiche, le badge de confiance et le tableau de comparaison ne dépendent que du fichier local.
+
+### Tests
+
+```bash
+python tests/test_secours.py
+```
+
+Sans clé, 18 scénarios sont testés : clé absente, clé invalide, Groq trop lent (coupure à 5 s), réinitialisation du chat, carte 3D des 53 communes, bascule 2D/3D, comparaison, niveaux de confiance. Avec `GROQ_API_KEY`, le script ajoute de vrais appels : refus hors sujet, résistance aux tentatives de détournement, lecture correcte des rangs.
+
+## Reproduire l'analyse (notebooks)
+
+Les résultats de `data/processed/` sont versionnés : **inutile de relancer les notebooks pour utiliser l'appli**. Pour tout recalculer :
+
+```bash
 python -m pip install -r requirements-analyse.txt
 python -m notebook
 ```
 
-Ouvre les notebooks depuis ce Python-là, pas depuis Anaconda.
-
-## Appli (Gradio + IA générative Groq)
-
-`app.py` lit uniquement `data/processed/score_risque_communes.geojson` : aucun calcul lourd n'est fait au lancement. Le bouton « Expliquer ce risque » appelle l'API Groq (modèle `openai/gpt-oss-120b`, code dans `explication_ia.py`). Si l'appel échoue ou dépasse 5 s, une réponse pré-rédigée par classe de risque s'affiche. Les tests sont dans `python tests/test_secours.py`.
-
-La clé est lue dans la variable d'environnement `GROQ_API_KEY` (clé gratuite sur https://console.groq.com/keys). **Ne jamais l'écrire dans le code.** Sans clé, l'appli fonctionne quand même et affiche la réponse pré-rédigée.
-
-```
-python -m pip install -r requirements.txt
-setx GROQ_API_KEY "votre_clé"     # Windows, puis rouvrir le terminal (Linux/macOS : export GROQ_API_KEY=...)
-python app.py                     # puis ouvrir http://127.0.0.1:7860
-```
-
-`data/raw/` (≈ 200 Mo d'images radar et de DEM) n'est pas versionné : les notebooks 00 à 02 le retéléchargent. Les résultats nécessaires à l'appli sont dans `data/processed/`, qui est versionné.
-
-## Ordre d'exécution
-
 | # | Notebook | Produit | Compte requis |
 |---|---|---|---|
-| 00 | `notebooks/00_collecte_quartiers.ipynb` | `data/processed/communes_dakar_terre.geojson` | non |
-| 01 | `notebooks/01_collecte_precipitations.ipynb` | `data/processed/pluie_journaliere_dakar.csv`, `episodes_fortes_pluies.csv` | non (CHIRPS) |
-| 02 | `notebooks/02_collecte_satellite_topo.ipynb` | `data/processed/score_eau_satellite.csv`, `topo_communes.csv` | oui : profil sentinelhub `cdse` (client OAuth créé sur https://shapps.dataspace.copernicus.eu/dashboard/) |
-| 03 | `notebooks/03_calcul_score_risque.ipynb` | `data/processed/score_risque_communes.csv` et `.geojson` (**fichiers lus par l'appli**) | non |
-| 04 | `notebooks/04_visualisation_carte.ipynb` | `outputs/carte_risque.html` | non |
+| 00 | `notebooks/00_collecte_quartiers.ipynb` | contours des 53 communes découpés sur la terre ferme (OpenStreetMap / Overpass) | non |
+| 01 | `notebooks/01_collecte_precipitations.ipynb` | pluie journalière 2023-2026 et épisodes de fortes pluies (CHIRPS) | non |
+| 02 | `notebooks/02_collecte_satellite_topo.ipynb` | eau stagnante par radar Sentinel-1, altitude et cuvettes (Copernicus DEM) | **oui** : compte gratuit Copernicus Data Space et client OAuth enregistré comme profil sentinelhub `cdse` (https://shapps.dataspace.copernicus.eu/dashboard/) |
+| 03 | `notebooks/03_calcul_score_risque.ipynb` | score composite, classes, contrôle de robustesse → `score_risque_communes.geojson` / `.csv` (**lus par l'appli**) | non |
 
-`data/raw/` contient les données brutes, jamais modifiées. `data/processed/` contient les données nettoyées.
+`data/raw/` (environ 200 Mo d'images radar, de DEM et de réponses brutes d'Overpass) n'est pas versionné : les notebooks 00 à 02 le retéléchargent.
 
-## Limites connues des données
+### Méthode en bref
 
-Cette section est complétée à chaque étape.
+1. **Unité** : les 53 communes d'arrondissement (OpenStreetMap), découpées le long du trait de côte.
+2. **Trois indicateurs par commune** :
+   - l'altitude médiane du sol (Copernicus DEM 30 m, bâtiments retirés par un filtre morphologique) ;
+   - la part de surface en cuvette (au moins 1 m plus basse que son voisinage, dans un rayon d'environ 1 km) ;
+   - le % de surface en eau stagnante détectée par radar Sentinel-1 le 22/08/2024, le 27/09/2024 et le 29/08/2025, juste après de fortes pluies. Ces images sont comparées à une référence de saison sèche (mai).
+3. **Score** : moyenne à poids égaux des z-scores des trois indicateurs, ramenée sur 0-100, puis 5 classes de taille égale.
+4. **Robustesse** : rang recalculé sans le satellite et avec l'altitude seule. Le classement est jugé stable si l'écart est au plus de 10 rangs.
+
+## Structure du dépôt
+
+```
+app.py                     appli Gradio (cartes, fiche, badge, comparaison, interface IA)
+explication_ia.py          appels Groq, prompts, délai de 5 s et réponses de secours
+tests/test_secours.py      tests de l'appli et de l'IA
+notebooks/                 analyse 00 → 03
+data/processed/            résultats (dont score_risque_communes.geojson, lu par l'appli)
+outputs/                   figures de contrôle
+requirements.txt           dépendances de l'appli
+requirements-analyse.txt   dépendances des notebooks
+```
+
+## Limites méthodologiques
 
 ### Contours (OpenStreetMap, notebook 00)
 - **L'unité d'analyse est la commune d'arrondissement (53 communes, 0,2 à 70 km²), pas le quartier.** OSM n'a pas de découpage homogène plus fin pour Dakar. Un résultat à l'échelle d'une commune ne dit rien des différences entre ses quartiers.
 - Les limites viennent de contributeurs OSM et ne sont pas officielles (ANSD/DTGC). Contrôle fait : ni trou ni chevauchement entre communes.
 - Les limites OSM débordent en mer sur la côte nord et au sud de Rufisque (jusqu'à 76 % de la surface pour Cambérène). La partie en mer a été retirée avec le trait de côte OSM, précis à quelques dizaines de mètres.
-- Les plans d'eau intérieurs (lacs, Niayes) sont conservés. Il faudra les exclure de la détection d'« eau stagnante ».
+- Les plans d'eau intérieurs (lacs, Niayes) sont conservés dans les communes. Ils sont classés en « eau permanente » (déjà sombres sur le radar en saison sèche) et ne comptent donc pas comme eau stagnante.
 - Le département de Keur Massar existe depuis 2021 : Yeumbeul Nord et Sud y sont rattachées, et non plus à Pikine.
 
 ### Précipitations (CHIRPS v2.0, notebook 01)
@@ -64,7 +127,7 @@ Cette section est complétée à chaque étape.
 
 ### Eau stagnante (Sentinel-1, notebook 02)
 - Analyse de 3 dates (22/08/2024, 27/09/2024, 29/08/2025), avec un passage tous les 12 jours. On voit l'eau qui persiste 1 à 5 jours après la pluie, pas le pic.
-- **Le bâti dense est quasiment invisible pour la méthode** : l'effet de double rebond entre l'eau et les façades empêche l'eau de ressortir sombre. Pikine, Thiaroye, Guinaw Rail et Médina ressortent à 0 %. **Cela ne signifie pas une absence d'inondation.**
+- **Le bâti dense est quasiment invisible pour la méthode** : l'effet de double rebond entre l'eau et les façades empêche l'eau de ressortir sombre. Pikine, Thiaroye, Guinaw Rail et Médina ressortent à 0 %. **Cela ne signifie pas une absence d'inondation.** L'appli le signale par l'alerte satellite et le badge de confiance.
 - L'eau détectée est de l'ordre de 0,1 à 0,3 % de la terre ferme, soit quelques hectares par commune au plus. Les écarts entre communes sont faibles et bruités.
 - Une bande côtière de 100 m est exclue, à cause de l'artefact du sable mouillé et du ressac.
 - Les seuils (-15 à -22 dB, baisse de 3 dB) sont standards mais n'ont pas été validés sur le terrain.
@@ -78,4 +141,12 @@ Cette section est complétée à chaque étape.
 - Le score est **relatif** : il classe les 53 communes entre elles et n'exprime pas une probabilité. Il combine, à poids égaux, les z-scores de l'altitude basse, des cuvettes et de l'eau Sentinel-1.
 - **CHIRPS et la pente sont exclus volontairement** (données manquantes pour la pluie, bâti pour la pente).
 - **Robustesse limitée** : seules 13 communes sur 53 gardent un rang stable (écart d'au plus 10 rangs) entre le score complet, le score sans Sentinel-1 et l'altitude seule. Le haut du classement (Pikine Ouest, Malika, Keur Massar Nord) et le bas (plateau Sicap, Mermoz, Ouakam) sont stables. Le milieu dépend des choix de méthode.
-- Il manque des facteurs majeurs : drainage, nappe phréatique affleurante, imperméabilisation, population. Le score n'a pas été validé avec des inondations observées.
+- Il manque des facteurs majeurs : drainage, nappe phréatique affleurante, imperméabilisation, population. Le score mesure l'**aléa physique**, pas la vulnérabilité des habitants, et n'a pas été validé avec des inondations observées.
+
+### IA générative
+- Le modèle ne reçoit que les données de l'observatoire, et son interprétation de chaque indicateur (« fait monter / baisser le risque ») est calculée à l'avance, pour éviter les contresens. Il peut néanmoins formuler une réponse imparfaite : **les chiffres de la fiche font foi**.
+- Les conseils pratiques sont génériques (gestes des ménages, actions communales). Ils ne remplacent pas les consignes officielles (ANACIM, protection civile).
+
+## Sources des données
+
+OpenStreetMap (contributeurs OSM, ODbL) · Copernicus Sentinel-1 et Copernicus DEM GLO-30 (ESA / Union européenne, via Copernicus Data Space Ecosystem) · CHIRPS v2.0 (Climate Hazards Center, UC Santa Barbara) · fonds de carte © CARTO.
