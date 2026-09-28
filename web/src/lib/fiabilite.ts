@@ -1,6 +1,6 @@
 // Niveau de confiance et couche « eau détectée » : même logique et mêmes textes que app.py
 // (niveau_confiance, explication_confiance, classe_eau). La parité est vérifiée par test.
-import type { ProprietesCommune } from "./risque";
+import type { ProprietesCommune } from "./risque.js";
 
 export type NiveauConfiance = "Haute" | "Moyenne" | "Faible";
 

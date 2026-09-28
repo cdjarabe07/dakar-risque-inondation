@@ -3,8 +3,8 @@
 import {
   construirePrompt, DELAI_MAX_MS, donneesIA, LONGUEUR_MAX_QUESTION, MODELE, NB_MESSAGES_HISTORIQUE,
   reponseSecours, secoursChat, SYSTEME, systemeChat, type DonneesIA,
-} from "./ia";
-import type { CollectionCommunes, ProprietesCommune } from "./risque";
+} from "./ia.js";
+import type { CollectionCommunes, ProprietesCommune } from "./risque.js";
 
 export interface ReponseIA {
   texte: string;

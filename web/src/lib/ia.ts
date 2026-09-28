@@ -1,7 +1,7 @@
 // Prompts et réponses de secours de l'IA : portage à l'identique de explication_ia.py (textes vérifiés par test).
 // Les nombres sont formatés comme en Python (point décimal, arrondi de Python) pour que les prompts soient identiques.
-import { arrondiPython as f } from "./comparaison";
-import { NB_COMMUNES, type ProprietesCommune } from "./risque";
+import { arrondiPython as f } from "./comparaison.js";
+import { NB_COMMUNES, type ProprietesCommune } from "./risque.js";
 
 export const MODELE = "openai/gpt-oss-120b";
 export const DELAI_MAX_MS = 5000;

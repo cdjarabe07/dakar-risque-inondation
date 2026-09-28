@@ -1,7 +1,7 @@
 // Comparaison de 2 ou 3 communes : même logique et mêmes textes que app.py
 // (_percentile_exposition, attribuer_couleurs, tableau_comparaison, synthese_comparaison). Parité vérifiée par test.
-import { explicationConfiance } from "./fiabilite";
-import { NB_COMMUNES, type ProprietesCommune } from "./risque";
+import { explicationConfiance } from "./fiabilite.js";
+import { NB_COMMUNES, type ProprietesCommune } from "./risque.js";
 
 export const MAX_COMPARAISON = 3;
 /** Couleurs d'identité (palette catégorielle validée pour le daltonisme), distinctes de la palette du risque. */
