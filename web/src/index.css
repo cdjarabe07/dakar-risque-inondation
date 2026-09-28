@@ -151,3 +151,38 @@ body { margin: 0; background: var(--fond); }
 
 /* La carte reste montée quand on change d'onglet (pas de rechargement WebGL) mais doit être masquée */
 .grille[hidden] { display: none; }
+
+/* IA : explication et chat */
+.bouton-principal {
+  width: 100%; border: 0; border-radius: 8px; padding: 10px 14px; font: inherit; font-weight: 600;
+  background: var(--accent); color: var(--accent-texte); cursor: pointer; margin-top: 6px;
+}
+.bouton-principal:disabled { opacity: 0.7; cursor: progress; }
+.reponse-ia { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--bordure); border-radius: 8px; }
+.note-ia { font-size: 0.8rem; color: var(--texte-2); margin: 8px 0 0; }
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.markdown th, .markdown td { border: 1px solid var(--bordure); padding: 4px 6px; text-align: left; }
+
+.chat { margin-top: 20px; border-top: 1px solid var(--bordure); padding-top: 14px; }
+.chat h3 { margin: 0 0 8px; font-size: 1rem; }
+.chat-messages {
+  max-height: 380px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+  padding: 8px; border: 1px solid var(--bordure); border-radius: 8px;
+}
+.bulle { padding: 8px 12px; border-radius: 10px; max-width: 92%; line-height: 1.5; }
+.bulle-utilisateur { align-self: flex-end; background: var(--accent); color: var(--accent-texte); }
+.bulle-assistant { align-self: flex-start; background: color-mix(in srgb, var(--texte) 6%, transparent); }
+.chat-saisie { display: flex; gap: 8px; margin-top: 8px; }
+.chat-saisie input {
+  flex: 1; padding: 8px 10px; font: inherit; color: var(--texte); background: var(--surface);
+  border: 1px solid var(--bordure); border-radius: 8px;
+}
+.chat-saisie button, .exemples button {
+  border: 1px solid var(--bordure); background: var(--surface); color: var(--texte); border-radius: 8px;
+  padding: 6px 12px; font: inherit; cursor: pointer;
+}
+.chat-saisie button:disabled, .exemples button:disabled { opacity: 0.55; cursor: default; }
+.exemples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.exemples button { font-size: 0.85rem; }

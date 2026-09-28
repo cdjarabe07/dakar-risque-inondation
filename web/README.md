@@ -1,36 +1,48 @@
 # Interface web — Observatoire du risque d'inondation de Dakar
 
-Réécriture de l'appli Gradio (`../app.py`) en interface web statique : React + TypeScript (Vite), carte deck.gl sur fond MapLibre. Déployable sur Vercel.
+Réécriture de l'appli Gradio (`../app.py`) en site web : React + TypeScript (Vite), carte deck.gl sur fond MapLibre, deux fonctions serveur pour l'IA. Déployé sur Vercel.
 
-État : **étape 1/4** — carte 2D/3D des 53 communes, cliquable (clic = sélection, clic dans le vide = désélection), infobulle au survol, résumé de la commune sélectionnée. À venir : fiche et badge de confiance (2), explication et chat IA (3), comparaison (4).
+## Fonctionnalités
+
+- **Carte 2D / 3D** des 53 communes (hauteur ∝ score), **cliquable** : clic = sélection, clic dans le vide = retour à la vue d'ensemble ; couche « Score de risque » ou « Eau détectée (satellite) » ; rotation automatique en 3D.
+- **Liste de recherche** des communes : au clic, la liste complète ; la frappe filtre sans tenir compte des accents ; clavier (flèches, Entrée, Échap).
+- **Fiche commune** : indicateurs, badge de confiance (explication au survol), avertissements « Attention ».
+- **IA (Groq, `openai/gpt-oss-120b`)** : bouton « Expliquer ce risque » et chat sur la commune sélectionnée ; hors sujet refusé ; coupure à 5 s et **réponse pré-rédigée** si l'IA ne répond pas (même si le serveur est injoignable).
+- **Comparaison** de 2 ou 3 communes : synthèse automatique, tableau, barres groupées sur une échelle commune 0-100.
+
+Les calculs et les textes (confiance, synthèse, prompts de l'IA, réponses de secours) sont **identiques à l'appli Gradio** : des tests exécutent le code Python et comparent les résultats.
 
 ## Lancer en local
 
 ```bash
 cd web
 npm install
-npm run dev        # http://localhost:5173
-npm test           # tests unitaires (vitest)
+npm run dev        # http://localhost:5173 (avec l'IA si GROQ_API_KEY est définie dans le terminal)
+npm test           # tests unitaires et de parité avec app.py
 npm run build      # version de production dans web/dist
-npm run preview    # sert web/dist sur http://localhost:4173
 ```
 
-## Données
-
-`scripts/preparer-donnees.mjs` lit le résultat des notebooks, `../data/processed/score_risque_communes.geojson` (source unique), et écrit une version allégée dans `public/data/communes.geojson` (non versionnée). Il est lancé automatiquement avant `dev` et `build`.
+En local, les fonctions `api/` sont servies par le serveur de développement (relais dans `vite.config.ts`).
 
 ## Déploiement sur Vercel
 
-1. Sur https://vercel.com/new, importer le dépôt GitHub `cdjarabe07/dakar-risque-inondation`.
-2. **Root Directory : `web`** (Framework détecté : Vite ; commandes par défaut).
-3. Laisser activée l'option « Include files outside the root directory in the Build Step » (le script de données lit `../data/processed`).
-4. Deploy. Chaque `git push` redéploie ensuite automatiquement.
+1. Importer le dépôt GitHub sur https://vercel.com/new, **Root Directory : `web`** (preset Vite), laisser activée « Include files outside the root directory in the Build Step » (les données sont lues dans `../data/processed`).
+2. **Settings → Environment Variables** : ajouter `GROQ_API_KEY` (clé gratuite sur https://console.groq.com/keys), puis redéployer. Sans clé, l'IA affiche les réponses pré-rédigées.
+3. Chaque `git push` sur `main` redéploie automatiquement.
+
+**Protection du quota Groq** : 10 questions par minute et par visiteur (compteur en mémoire de chaque instance de fonction : protection « au mieux », pas une garantie stricte).
 
 ## Organisation
 
 ```
-src/lib/risque.ts          types, palette du risque (identique à app.py, vérifié par test), utilitaires
-src/components/Carte.tsx    carte MapLibre + couche deck.gl (MapboxOverlay), clic, survol, 2D/3D
-src/components/Legende.tsx  légende des classes de risque
-src/App.tsx                 mise en page et état (commune sélectionnée, mode 2D/3D)
+api/expliquer.ts, api/chat.ts   fonctions Vercel (POST) ; la clé Groq ne quitte jamais le serveur
+src/lib/risque.ts                types, palette du risque, chargement des données
+src/lib/fiabilite.ts             niveau de confiance, classes de la couche eau, recherche sans accents
+src/lib/comparaison.ts           échelle 0-100, couleurs stables, tableau et synthèse de comparaison
+src/lib/ia.ts                    prompts et réponses de secours (portage de explication_ia.py)
+src/lib/serveur-ia.ts            appel Groq (coupure 5 s), validation, limite par visiteur
+src/lib/client-ia.ts             appels depuis le navigateur + secours local si le serveur est injoignable
+src/components/                  Carte, Legende, SelecteurCommune, Fiche, BadgeConfiance, Explication, Chat,
+                                 Comparaison, GraphiqueComparaison, Markdown
+scripts/preparer-donnees.mjs     ../data/processed → public/data/communes.geojson (avant dev et build)
 ```

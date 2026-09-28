@@ -25,6 +25,10 @@ Zones prioritaires de l'étude : Pikine, Guédiawaye, Médina, Yeumbeul et Grand
 
 Elle affiche toujours quelque chose, avec ou sans IA.
 
+## Version web (Vercel)
+
+Une réécriture de l'interface en site web (React + deck.gl, fonctions serveur pour l'IA) se trouve dans [`web/`](web/README.md) : mêmes données, mêmes calculs et mêmes textes que l'appli Gradio (vérifiés par tests), avec une carte cliquable et une adresse fixe. L'appli Gradio ci-dessous reste disponible pour un usage local.
+
 ## Installation et lancement de l'appli
 
 Python 3.11 ou plus récent (testé avec Python 3.13 sous Windows).

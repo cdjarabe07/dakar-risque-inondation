@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Carte, { type Couche } from "./components/Carte";
+import Chat from "./components/Chat";
+import Explication from "./components/Explication";
 import Comparaison from "./components/Comparaison";
 import Fiche from "./components/Fiche";
 import Legende from "./components/Legende";
@@ -72,7 +74,12 @@ export default function App() {
         <aside className="bloc bloc-fiche" aria-live="polite">
           {communes && <SelecteurCommune communes={proprietes} selection={selection} onSelection={setSelection} />}
           {commune ? (
-            <Fiche c={commune} />
+            <>
+              <Fiche c={commune} />
+              {/* key = commune : l'explication et le chat repartent de zéro à chaque changement de commune */}
+              <Explication key={`explication-${commune.commune}`} commune={commune} toutes={proprietes} />
+              <Chat key={`chat-${commune.commune}`} commune={commune} toutes={proprietes} />
+            </>
           ) : (
             <p className="discret">Choisissez une commune dans la liste ou cliquez sur la carte.</p>
           )}
