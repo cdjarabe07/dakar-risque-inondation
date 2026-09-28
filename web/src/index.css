@@ -102,3 +102,52 @@ body { margin: 0; background: var(--fond); }
   border-left: 4px solid #d03b3b; background: color-mix(in srgb, #d03b3b 8%, transparent);
   padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 10px 0;
 }
+
+/* Onglets */
+.onglets { display: flex; gap: 4px; border-bottom: 1px solid var(--bordure); margin-bottom: 16px; }
+.onglets button {
+  border: 0; background: none; color: var(--texte-2); font: inherit; padding: 8px 14px; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.onglets button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.onglets button:focus-visible { outline: 2px solid var(--accent); }
+
+/* Comparaison */
+.comparaison { padding: 16px; }
+.choix-communes { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.choix-communes .selecteur { min-width: 260px; flex: 1; max-width: 360px; margin-bottom: 0; }
+.etiquette-commune {
+  display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--bordure); border-radius: 999px;
+  padding: 4px 6px 4px 10px; font-weight: 600;
+}
+.etiquette-commune button {
+  border: 0; background: none; color: var(--texte-2); font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.synthese { line-height: 1.6; }
+.badges-comparaison { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.avertissements ul { margin: 6px 0 12px; }
+.tableau-defilant { overflow-x: auto; }
+.tableau-comparaison { width: 100%; border-collapse: collapse; font-size: 0.92rem; table-layout: fixed; }
+.tableau-comparaison th, .tableau-comparaison td {
+  border-bottom: 1px solid var(--bordure); padding: 8px; text-align: left; vertical-align: top;
+}
+.tableau-comparaison thead th .badge-confiance { margin-top: 4px; }
+.tableau-comparaison tbody th { font-weight: 500; color: var(--texte-2); width: 22%; }
+
+/* Graphique */
+.graphique { margin: 18px 0 0; }
+.graphique-legende { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; font-weight: 600; }
+.graphique-zone { position: relative; }
+.graphique svg { width: 100%; height: auto; display: block; }
+.graphique .grille { stroke: var(--bordure); stroke-width: 1; }
+.graphique .axe { stroke: var(--texte-2); stroke-width: 1; }
+.graphique .graduation, .graphique .etiquette { fill: var(--texte-2); font-size: 12px; }
+.graphique .etiquette { fill: var(--texte); }
+.graphique .valeur { fill: var(--texte); font-size: 12px; font-weight: 600; }
+.infobulle-graphique {
+  position: absolute; pointer-events: none; background: #1f2937; color: white; font-size: 13px;
+  padding: 6px 8px; border-radius: 6px; max-width: 320px; z-index: 5;
+}
+
+/* La carte reste montée quand on change d'onglet (pas de rechargement WebGL) mais doit être masquée */
+.grille[hidden] { display: none; }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Carte, { type Couche } from "./components/Carte";
+import Comparaison from "./components/Comparaison";
 import Fiche from "./components/Fiche";
 import Legende from "./components/Legende";
 import SelecteurCommune from "./components/SelecteurCommune";
@@ -14,6 +15,7 @@ export default function App() {
   const [mode3d, setMode3d] = useState(true);
   const [couche, setCouche] = useState<Couche>("score");
   const [rotation, setRotation] = useState(false);
+  const [onglet, setOnglet] = useState<"carte" | "comparer">("carte");
 
   useEffect(() => {
     chargerCommunes().then(setCommunes).catch((e: Error) => setErreur(e.message));
@@ -27,9 +29,17 @@ export default function App() {
       <header className="bandeau">
         <h1>Observatoire du Risque d'Inondation — Dakar</h1>
         <p className="sous-titre">L'IA explique le risque, elle ne le décide pas.</p>
+        <nav className="onglets" role="tablist" aria-label="Sections">
+          <button type="button" role="tab" aria-selected={onglet === "carte"} onClick={() => setOnglet("carte")}>Carte</button>
+          <button type="button" role="tab" aria-selected={onglet === "comparer"} onClick={() => setOnglet("comparer")}>
+            Comparer des communes
+          </button>
+        </nav>
       </header>
 
-      <main className="grille">
+      {onglet === "comparer" && (communes ? <Comparaison communes={proprietes} /> : <p className="discret">Chargement…</p>)}
+
+      <main className="grille" hidden={onglet !== "carte"}>
         <section className="bloc bloc-carte" aria-label="Carte des communes">
           <div className="barre-outils">
             <div className="segments" role="group" aria-label="Type de carte">
