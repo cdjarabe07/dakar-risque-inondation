@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import Carte from "./components/Carte";
+import { useEffect, useMemo, useState } from "react";
+import Carte, { type Couche } from "./components/Carte";
+import Fiche from "./components/Fiche";
 import Legende from "./components/Legende";
-import { chargerCommunes, COULEURS_RISQUE, NB_COMMUNES, type CollectionCommunes } from "./lib/risque";
+import SelecteurCommune from "./components/SelecteurCommune";
+import { chargerCommunes, type CollectionCommunes } from "./lib/risque";
 
 const COMMUNE_PAR_DEFAUT = "Pikine Ouest";
 
@@ -10,12 +12,15 @@ export default function App() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [selection, setSelection] = useState<string | null>(COMMUNE_PAR_DEFAUT);
   const [mode3d, setMode3d] = useState(true);
+  const [couche, setCouche] = useState<Couche>("score");
+  const [rotation, setRotation] = useState(false);
 
   useEffect(() => {
     chargerCommunes().then(setCommunes).catch((e: Error) => setErreur(e.message));
   }, []);
 
-  const commune = communes?.features.find((f) => f.properties.commune === selection)?.properties;
+  const proprietes = useMemo(() => communes?.features.map((f) => f.properties) ?? [], [communes]);
+  const commune = proprietes.find((p) => p.commune === selection);
 
   return (
     <div className="page">
@@ -29,34 +34,37 @@ export default function App() {
           <div className="barre-outils">
             <div className="segments" role="group" aria-label="Type de carte">
               <button type="button" aria-pressed={mode3d} onClick={() => setMode3d(true)}>Carte 3D</button>
-              <button type="button" aria-pressed={!mode3d} onClick={() => setMode3d(false)}>Carte 2D</button>
+              <button type="button" aria-pressed={!mode3d} onClick={() => { setMode3d(false); setRotation(false); }}>
+                Carte 2D
+              </button>
             </div>
+            <div className="segments" role="group" aria-label="Couche affichée">
+              <button type="button" aria-pressed={couche === "score"} onClick={() => setCouche("score")}>Score de risque</button>
+              <button type="button" aria-pressed={couche === "eau"} onClick={() => setCouche("eau")}>Eau détectée (satellite)</button>
+            </div>
+            {mode3d && (
+              <button type="button" className="bouton-secondaire" aria-pressed={rotation} onClick={() => setRotation((r) => !r)}>
+                {rotation ? "Arrêter la rotation" : "Rotation automatique"}
+              </button>
+            )}
           </div>
           <div className="carte">
             {communes && (
-              <Carte communes={communes} selection={selection} onSelection={setSelection} mode3d={mode3d} />
+              <Carte communes={communes} selection={selection} onSelection={setSelection}
+                     mode3d={mode3d} couche={couche} rotation={rotation} />
             )}
             {!communes && !erreur && <p className="etat">Chargement des communes…</p>}
             {erreur && <p className="etat erreur">Impossible de charger les données : {erreur}</p>}
           </div>
-          <Legende mode3d={mode3d} />
+          <Legende mode3d={mode3d} couche={couche} />
         </section>
 
         <aside className="bloc bloc-fiche" aria-live="polite">
+          {communes && <SelecteurCommune communes={proprietes} selection={selection} onSelection={setSelection} />}
           {commune ? (
-            <>
-              <h2>{commune.commune}</h2>
-              <p className="discret">Département de {commune.departement}</p>
-              <p className="resume">
-                <span className="pastille" style={{ background: COULEURS_RISQUE[commune.classe_risque] }} />
-                Risque {commune.classe_risque.toLowerCase()} — score {Math.round(commune.score_risque)}/100
-                <br />
-                Rang {commune.rang} sur {NB_COMMUNES}
-              </p>
-              <p className="discret">La fiche détaillée, le badge de confiance et l'IA arrivent aux étapes suivantes.</p>
-            </>
+            <Fiche c={commune} />
           ) : (
-            <p className="discret">Cliquez sur une commune de la carte pour afficher son résumé.</p>
+            <p className="discret">Choisissez une commune dans la liste ou cliquez sur la carte.</p>
           )}
         </aside>
       </main>
